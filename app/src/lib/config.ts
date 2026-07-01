@@ -1,0 +1,3 @@
+// URL del backend. En dispositivo físico usa la IP de tu PC o la URL de Dokploy.
+// Se define en app/.env como EXPO_PUBLIC_API_URL=...
+export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000";
