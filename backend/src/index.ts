@@ -8,6 +8,7 @@ import { expenseRoutes } from "./routes/expenses";
 import { incomeRoutes } from "./routes/incomes";
 import { obligationRoutes } from "./routes/obligations";
 import { paymentMethodRoutes } from "./routes/paymentMethods";
+import { seedRoutes } from "./routes/seed";
 import { userRoutes } from "./routes/user";
 import { requireAuth, type AuthEnv } from "./middleware/auth";
 
@@ -31,6 +32,7 @@ api.route("/payment-methods", paymentMethodRoutes);
 api.route("/obligations", obligationRoutes);
 api.route("/expenses", expenseRoutes);
 api.route("/incomes", incomeRoutes);
+api.route("/seed", seedRoutes);
 app.route("/api", api);
 
 // Manejo de errores (validación Zod → 400)

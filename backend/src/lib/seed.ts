@@ -1,10 +1,23 @@
 import { randomUUID } from "node:crypto";
 import { DEFAULT_PAYMENT_METHODS, SEED_OBLIGATIONS } from "@iaas/shared";
+import { eq } from "drizzle-orm";
 import { db } from "../db/client";
-import { obligations, paymentMethods } from "../db/schema";
+import { expenses, incomes, obligations, paymentMethods } from "../db/schema";
 
-/** Crea los medios de pago y obligaciones por defecto para un usuario nuevo. */
-export function seedUserData(userId: string) {
+/**
+ * Carga los medios de pago y obligaciones por defecto para un usuario.
+ * Idempotente: borra los existentes antes de insertar.
+ * Con `wipeMovements` también elimina gastos e ingresos del usuario.
+ */
+export function seedUserData(userId: string, opts: { wipeMovements?: boolean } = {}) {
+  // Limpiar catálogo previo (obligation_status se borra en cascada)
+  db.delete(obligations).where(eq(obligations.userId, userId)).run();
+  db.delete(paymentMethods).where(eq(paymentMethods.userId, userId)).run();
+  if (opts.wipeMovements) {
+    db.delete(expenses).where(eq(expenses.userId, userId)).run();
+    db.delete(incomes).where(eq(incomes.userId, userId)).run();
+  }
+
   db.insert(paymentMethods)
     .values(
       DEFAULT_PAYMENT_METHODS.map((pm) => ({
@@ -36,4 +49,9 @@ export function seedUserData(userId: string) {
       })),
     )
     .run();
+
+  return {
+    paymentMethods: DEFAULT_PAYMENT_METHODS.length,
+    obligations: SEED_OBLIGATIONS.length,
+  };
 }
