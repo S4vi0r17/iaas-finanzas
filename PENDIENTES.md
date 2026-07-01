@@ -27,6 +27,17 @@ Fase 1 (nucleo) completa:
 - Plan PRO validado en el servidor (no codigo visible en el cliente).
 - Limite de obligaciones gratis ya existe en backend (MAX_FREE_OBLIGATIONS = 10).
 
+## CRUD por completar
+
+Estado actual del CRUD por recurso:
+- Obligaciones: completo (crear, editar, borrar, marcar pagada, reordenar en backend).
+- Usuario: completo (ver, editar).
+- Gastos: faltan editar (falta PATCH /api/expenses/:id y su UI). Hoy: crear, listar, borrar.
+- Ingresos: faltan editar (falta PATCH /api/incomes/:id y su UI). Hoy: crear, listar, borrar.
+- Medios de pago: falta crear real (upsert) para usuarios vacios y la UI en Ajustes.
+  Hoy: listar y editar por slot existente.
+- Reordenar obligaciones: backend listo (PATCH /obligations/reorder), falta UI con flechas.
+
 ## Importante (pendiente por resolver)
 
 - Registro ahora crea el usuario VACIO (sin medios de pago). La UI de Ajustes hoy solo
