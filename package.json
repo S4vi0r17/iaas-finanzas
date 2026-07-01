@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "dev:backend": "bun run --cwd backend dev",
-    "typecheck": "bun run --cwd packages/shared typecheck && bun run --cwd backend typecheck"
+    "dev:app": "bun run --cwd app start",
+    "typecheck": "bun run --cwd packages/shared typecheck && bun run --cwd backend typecheck && bun run --cwd app typecheck"
   }
 }
