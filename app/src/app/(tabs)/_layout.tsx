@@ -2,6 +2,7 @@ import { Redirect, Tabs } from 'expo-router';
 import { Text } from 'react-native';
 
 import { useAuth } from '@/lib/auth';
+import { MonthProvider } from '@/hooks/useMonth';
 
 function TabIcon({ emoji, color }: { emoji: string; color: string }) {
   return <Text style={{ fontSize: 20, color }}>{emoji}</Text>;
@@ -14,7 +15,8 @@ export default function TabsLayout() {
   if (!user) return <Redirect href="/login" />;
 
   return (
-    <Tabs
+    <MonthProvider>
+      <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: '#2563eb',
@@ -50,6 +52,7 @@ export default function TabsLayout() {
           tabBarIcon: ({ color }) => <TabIcon emoji="📊" color={color} />,
         }}
       />
-    </Tabs>
+      </Tabs>
+    </MonthProvider>
   );
 }
