@@ -5,7 +5,8 @@
   "description": "IAAS Finanzas — gestor de finanzas personales (monorepo)",
   "workspaces": [
     "packages/*",
-    "backend"
+    "backend",
+    "app"
   ],
   "scripts": {
     "dev:backend": "bun run --cwd backend dev",
