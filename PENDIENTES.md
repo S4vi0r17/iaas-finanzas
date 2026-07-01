@@ -27,13 +27,27 @@ Fase 1 (nucleo) completa:
 - Plan PRO validado en el servidor (no codigo visible en el cliente).
 - Limite de obligaciones gratis ya existe en backend (MAX_FREE_OBLIGATIONS = 10).
 
+## Importante (pendiente por resolver)
+
+- Registro ahora crea el usuario VACIO (sin medios de pago). La UI de Ajustes hoy solo
+  edita slots existentes (PATCH por slot), asi que un usuario real nuevo no puede crear
+  sus medios de pago sin llamar a /api/seed. Pendiente: que el guardado de medios de pago
+  haga upsert (crear si no existe) y que Ajustes muestre los 14 slots por defecto aunque
+  no existan aun en la DB.
+
 ## Mejoras menores
 
 - Selector de fecha nativo (@react-native-community/datetimepicker). Hoy la fecha se ingresa como texto AAAA-MM-DD.
 - Reordenar obligaciones (backend ya soporta PATCH /obligations/reorder; falta UI con flechas).
-- Endpoint opcional para reiniciar/re-sembrar datos del usuario (ver notas).
 - Icono, splash y nombre visible de la app (branding IAAS).
 - Pantalla de carga/errores mas pulida.
+
+## Endpoint de seed (desarrollo)
+
+- POST /api/seed  (requiere auth) carga medios de pago + obligaciones por defecto en la
+  cuenta actual. Idempotente (borra y recrea, no duplica).
+- POST /api/seed?wipe=true  ademas borra gastos e ingresos del usuario.
+- Se desactiva con ENABLE_DEV_SEED=false (ponlo asi en produccion).
 
 ## Notas tecnicas para continuar
 
