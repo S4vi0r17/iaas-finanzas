@@ -1,0 +1,36 @@
+# deps
+node_modules/
+.pnp.*
+
+# builds
+dist/
+build/
+*.tsbuildinfo
+
+# env
+.env
+.env.local
+*.env
+
+# sqlite data
+*.sqlite
+*.sqlite3
+*.db
+data/
+
+# expo
+app/.expo/
+app/dist/
+app/web-build/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# os / editor
+.DS_Store
+*.log
+.idea/
+.vscode/

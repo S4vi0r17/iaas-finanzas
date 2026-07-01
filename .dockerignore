@@ -1,0 +1,13 @@
+node_modules
+**/node_modules
+app
+.git
+.gitignore
+*.md
+**/*.sqlite
+**/*.sqlite3
+**/data
+backend/test-api.ts
+.expo
+dist
+build

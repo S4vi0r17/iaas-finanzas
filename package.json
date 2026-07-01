@@ -1,0 +1,14 @@
+{
+  "name": "iaas-finanzas",
+  "private": true,
+  "version": "0.1.0",
+  "description": "IAAS Finanzas — gestor de finanzas personales (monorepo)",
+  "workspaces": [
+    "packages/*",
+    "backend"
+  ],
+  "scripts": {
+    "dev:backend": "bun run --cwd backend dev",
+    "typecheck": "bun run --cwd packages/shared typecheck && bun run --cwd backend typecheck"
+  }
+}
