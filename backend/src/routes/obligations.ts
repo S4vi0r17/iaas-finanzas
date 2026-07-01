@@ -113,11 +113,13 @@ obligationRoutes.patch("/:id", async (c) => {
 obligationRoutes.delete("/:id", (c) => {
   const userId = c.get("userId");
   const id = c.req.param("id");
-  const res = db
-    .delete(obligations)
+  const found = db
+    .select({ id: obligations.id })
+    .from(obligations)
     .where(and(eq(obligations.id, id), eq(obligations.userId, userId)))
-    .run();
-  if (res.changes === 0) return c.json({ error: "No encontrada" }, 404);
+    .get();
+  if (!found) return c.json({ error: "No encontrada" }, 404);
+  db.delete(obligations).where(and(eq(obligations.id, id), eq(obligations.userId, userId))).run();
   return c.json({ ok: true });
 });
 

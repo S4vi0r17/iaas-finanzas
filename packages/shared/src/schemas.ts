@@ -15,7 +15,7 @@ export const optionalDateStr = z.union([dateStr, z.literal("")]);
 
 export const currencyCode = z
   .string()
-  .refine((v) => CURRENCY_CODES.includes(v), "Moneda no soportada");
+  .refine((v) => (CURRENCY_CODES as readonly string[]).includes(v), "Moneda no soportada");
 
 export const pmType = z.enum(PM_TYPES);
 export const obligationType = z.enum(OBLIGATION_TYPES);

@@ -44,10 +44,14 @@ incomeRoutes.post("/", async (c) => {
 });
 
 incomeRoutes.delete("/:id", (c) => {
-  const res = db
-    .delete(incomes)
-    .where(and(eq(incomes.id, c.req.param("id")), eq(incomes.userId, c.get("userId"))))
-    .run();
-  if (res.changes === 0) return c.json({ error: "No encontrado" }, 404);
+  const id = c.req.param("id");
+  const userId = c.get("userId");
+  const found = db
+    .select({ id: incomes.id })
+    .from(incomes)
+    .where(and(eq(incomes.id, id), eq(incomes.userId, userId)))
+    .get();
+  if (!found) return c.json({ error: "No encontrado" }, 404);
+  db.delete(incomes).where(and(eq(incomes.id, id), eq(incomes.userId, userId))).run();
   return c.json({ ok: true });
 });

@@ -1,6 +1,6 @@
 import { PM_ICONS, currencySymbol } from '@iaas/shared';
 import { useMemo } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View, type DimensionValue } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppHeader } from '@/components/ui/AppHeader';
@@ -8,6 +8,8 @@ import { useExpenses, useIncomes, useObligations, usePaymentMethods } from '@/ho
 import { useMonth } from '@/hooks/useMonth';
 import { useAuth } from '@/lib/auth';
 import { fmt } from '@/lib/format';
+
+const barWidth = (pct: number): DimensionValue => `${Math.max(0, Math.min(100, Math.round(pct)))}%`;
 
 type Bucket = { ing: number; gfG: number; gfI: number; gV: number };
 type PmStat = { name: string; icon: string; total: number; count: number; cats: Record<string, number> };
@@ -164,7 +166,7 @@ export default function ResumenScreen() {
                     <View className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
                       <View
                         className="h-1.5 rounded-full bg-[#2563eb]"
-                        style={{ width: `${pct.toFixed(0)}%` }}
+                        style={{ width: barWidth(pct) }}
                       />
                     </View>
                     <Text className="mt-1 text-[11px] text-slate-400">
@@ -217,7 +219,7 @@ export default function ResumenScreen() {
           <BRow l="Inversiones" v={`- ${fmt(model.totI, base)}`} />
           <BRow l="Ahorro libre" v={fmt(model.ahorro, base)} strong vColor={model.ahorro >= 0 ? '#86efac' : '#fca5a5'} />
           <View className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/25">
-            <View className="h-1.5 rounded-full bg-white/90" style={{ width: `${model.pct.toFixed(0)}%` }} />
+            <View className="h-1.5 rounded-full bg-white/90" style={{ width: barWidth(model.pct) }} />
           </View>
           <Text className="mt-1 text-[11px] text-white/60">
             {model.pct.toFixed(0)}% del ingreso comprometido
