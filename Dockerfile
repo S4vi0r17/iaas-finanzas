@@ -5,7 +5,7 @@ FROM oven/bun:1.3-alpine
 WORKDIR /app
 
 # 1) Instalar dependencias con caché (solo manifests primero)
-COPY package.json bun.lock ./
+COPY package.json bun.lock bunfig.toml ./
 COPY packages/shared/package.json packages/shared/
 COPY backend/package.json backend/
 RUN bun install --frozen-lockfile

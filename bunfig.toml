@@ -1,0 +1,4 @@
+# node_modules plano (hoisted): necesario para que Metro/Babel de React Native
+# resuelvan plugins y presets transitivos en el monorepo.
+[install]
+linker = "hoisted"
