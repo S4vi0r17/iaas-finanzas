@@ -55,7 +55,9 @@ export const obligations = sqliteTable(
     catCustom: text("cat_custom").notNull().default(""),
     tipo: text("tipo").notNull().default("gasto"), // gasto | inversion
     moneda: text("moneda").notNull().default("PEN"),
-    metodoPago: text("metodo_pago").notNull().default(""), // id del medio de pago
+    paymentMethodId: text("payment_method_id").references(() => paymentMethods.id, {
+      onDelete: "set null",
+    }),
     sortOrder: integer("sort_order").notNull().default(0),
   },
   (t) => ({
@@ -93,8 +95,12 @@ export const expenses = sqliteTable(
     monto: real("monto").notNull(),
     cat: text("cat").notNull().default("Otro"),
     catCustom: text("cat_custom").notNull().default(""),
-    fuente: text("fuente").notNull().default(""), // id del medio de pago
-    oblRef: text("obl_ref").notNull().default(""),
+    paymentMethodId: text("payment_method_id").references(() => paymentMethods.id, {
+      onDelete: "set null",
+    }),
+    obligationId: text("obligation_id").references(() => obligations.id, {
+      onDelete: "set null",
+    }),
     fecha: text("fecha").notNull(), // YYYY-MM-DD
     moneda: text("moneda").notNull().default("PEN"),
   },

@@ -22,7 +22,7 @@ export default function GastosScreen() {
   const baseCurrency = user?.currency ?? 'PEN';
   const expenses = data?.expenses ?? [];
 
-  function pmLabel(id: string) {
+  function pmLabel(id: string | null) {
     const pm = pmData?.paymentMethods.find((p) => p.id === id);
     return pm ? `${PM_ICONS[pm.type]} ${pm.name}` : '';
   }
@@ -70,7 +70,7 @@ export default function GastosScreen() {
           </View>
         }
         renderItem={({ item }) => (
-          <ItemRow item={item} pmLabel={pmLabel(item.fuente)} onDelete={() => confirmDelete(item.id)} />
+          <ItemRow item={item} pmLabel={pmLabel(item.paymentMethodId)} onDelete={() => confirmDelete(item.id)} />
         )}
         ListEmptyComponent={
           isLoading ? (

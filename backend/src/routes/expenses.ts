@@ -14,8 +14,8 @@ function toExpense(row: typeof expenses.$inferSelect): Expense {
     monto: row.monto,
     cat: row.cat,
     catCustom: row.catCustom,
-    fuente: row.fuente,
-    oblRef: row.oblRef,
+    paymentMethodId: row.paymentMethodId,
+    obligationId: row.obligationId,
     fecha: row.fecha,
     moneda: row.moneda,
   };

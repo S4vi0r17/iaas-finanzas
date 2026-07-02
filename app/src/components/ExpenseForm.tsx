@@ -25,8 +25,8 @@ export function ExpenseForm({ visible, onClose }: { visible: boolean; onClose: (
   const [moneda, setMoneda] = useState(user?.currency ?? 'PEN');
   const [cat, setCat] = useState('Alimentacion');
   const [catCustom, setCatCustom] = useState('');
-  const [fuente, setFuente] = useState('');
-  const [oblRef, setOblRef] = useState('');
+  const [paymentMethodId, setPaymentMethodId] = useState('');
+  const [obligationId, setObligationId] = useState('');
   const [fecha, setFecha] = useState(today());
 
   useEffect(() => {
@@ -36,8 +36,8 @@ export function ExpenseForm({ visible, onClose }: { visible: boolean; onClose: (
       setMoneda(user?.currency ?? 'PEN');
       setCat('Alimentacion');
       setCatCustom('');
-      setFuente('');
-      setOblRef('');
+      setPaymentMethodId('');
+      setObligationId('');
       setFecha(today());
     }
   }, [visible, user?.currency]);
@@ -64,8 +64,8 @@ export function ExpenseForm({ visible, onClose }: { visible: boolean; onClose: (
       monto: m,
       cat,
       catCustom: catCustom.trim(),
-      fuente,
-      oblRef,
+      paymentMethodId: paymentMethodId || null,
+      obligationId: obligationId || null,
       fecha,
       moneda,
     };
@@ -106,8 +106,8 @@ export function ExpenseForm({ visible, onClose }: { visible: boolean; onClose: (
         onChangeText={setCatCustom}
         placeholder="Opcional"
       />
-      <Picker label="Medio de pago" value={fuente} options={pmOptions} onChange={setFuente} />
-      <Picker label="Relacionar con obligación" value={oblRef} options={oblOptions} onChange={setOblRef} />
+      <Picker label="Medio de pago" value={paymentMethodId} options={pmOptions} onChange={setPaymentMethodId} />
+      <Picker label="Relacionar con obligación" value={obligationId} options={oblOptions} onChange={setObligationId} />
       <Field label="Fecha" value={fecha} onChangeText={setFecha} placeholder="AAAA-MM-DD" />
 
       <View className="mt-2 flex-row gap-3">

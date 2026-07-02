@@ -47,7 +47,7 @@ export default function ObligacionesScreen() {
   const obligations = data?.obligations ?? [];
   const paidIds = data?.paidIds ?? [];
 
-  function pmLabel(id: string) {
+  function pmLabel(id: string | null) {
     const pm = pmData?.paymentMethods.find((p) => p.id === id);
     return pm ? `${PM_ICONS[pm.type]} ${pm.name}` : '';
   }
@@ -152,7 +152,7 @@ export default function ObligacionesScreen() {
             paid={paidIds.includes(item.id)}
             year={year}
             month={month}
-            pmLabel={pmLabel(item.metodoPago)}
+            pmLabel={pmLabel(item.paymentMethodId)}
             baseCurrency={baseCurrency}
             onToggle={() =>
               togglePaid.mutate({ id: item.id, monthKey, paid: !paidIds.includes(item.id) })

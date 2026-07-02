@@ -23,6 +23,12 @@ export const obligationType = z.enum(OBLIGATION_TYPES);
 const money = z.number().min(0, "El monto no puede ser negativo");
 const shortText = z.string().trim().max(120);
 
+/** Referencia opcional a otra entidad (FK). "" o ausente → null. */
+const optionalRef = z
+  .string()
+  .nullish()
+  .transform((v) => (v && v.trim() ? v.trim() : null));
+
 // ─── Auth ─────────────────────────────────────────────────────────────
 export const registerInput = z.object({
   email: z.string().trim().toLowerCase().email("Email inválido"),
@@ -90,7 +96,7 @@ export const obligationInput = z.object({
   catCustom: shortText.default(""),
   tipo: obligationType.default("gasto"),
   moneda: currencyCode,
-  metodoPago: z.string().default(""),
+  paymentMethodId: optionalRef,
 });
 
 export const obligation = obligationInput.extend({
@@ -113,8 +119,8 @@ export const expenseInput = z.object({
   monto: money.gt(0, "Monto inválido"),
   cat: shortText.default("Otro"),
   catCustom: shortText.default(""),
-  fuente: z.string().default(""),
-  oblRef: z.string().default(""),
+  paymentMethodId: optionalRef,
+  obligationId: optionalRef,
   fecha: dateStr,
   moneda: currencyCode,
 });

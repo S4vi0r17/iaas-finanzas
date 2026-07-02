@@ -5,11 +5,13 @@ CREATE TABLE `expenses` (
 	`monto` real NOT NULL,
 	`cat` text DEFAULT 'Otro' NOT NULL,
 	`cat_custom` text DEFAULT '' NOT NULL,
-	`fuente` text DEFAULT '' NOT NULL,
-	`obl_ref` text DEFAULT '' NOT NULL,
+	`payment_method_id` text,
+	`obligation_id` text,
 	`fecha` text NOT NULL,
 	`moneda` text DEFAULT 'PEN' NOT NULL,
-	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
+	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`payment_method_id`) REFERENCES `payment_methods`(`id`) ON UPDATE no action ON DELETE set null,
+	FOREIGN KEY (`obligation_id`) REFERENCES `obligations`(`id`) ON UPDATE no action ON DELETE set null
 );
 --> statement-breakpoint
 CREATE INDEX `exp_user_fecha` ON `expenses` (`user_id`,`fecha`);--> statement-breakpoint
@@ -47,9 +49,10 @@ CREATE TABLE `obligations` (
 	`cat_custom` text DEFAULT '' NOT NULL,
 	`tipo` text DEFAULT 'gasto' NOT NULL,
 	`moneda` text DEFAULT 'PEN' NOT NULL,
-	`metodo_pago` text DEFAULT '' NOT NULL,
+	`payment_method_id` text,
 	`sort_order` integer DEFAULT 0 NOT NULL,
-	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
+	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`payment_method_id`) REFERENCES `payment_methods`(`id`) ON UPDATE no action ON DELETE set null
 );
 --> statement-breakpoint
 CREATE INDEX `obl_user` ON `obligations` (`user_id`);--> statement-breakpoint

@@ -59,7 +59,7 @@ export default function ResumenScreen() {
 
     // Uso por medio de pago (solo moneda base)
     const pmStats: Record<string, PmStat> = {};
-    const addPm = (id: string, amt: number, cat: string) => {
+    const addPm = (id: string | null, amt: number, cat: string) => {
       const k = id || 'xx';
       if (!pmStats[k]) {
         pmStats[k] = {
@@ -76,10 +76,10 @@ export default function ResumenScreen() {
     };
     obligations
       .filter((o) => o.moneda === base)
-      .forEach((o) => addPm(o.metodoPago, o.monto, o.catCustom?.trim() || o.cat || 'Otro'));
+      .forEach((o) => addPm(o.paymentMethodId, o.monto, o.catCustom?.trim() || o.cat || 'Otro'));
     expenses
       .filter((g) => g.moneda === base)
-      .forEach((g) => addPm(g.fuente, g.monto, g.catCustom?.trim() || g.cat || 'Otro'));
+      .forEach((g) => addPm(g.paymentMethodId, g.monto, g.catCustom?.trim() || g.cat || 'Otro'));
     const pmList = Object.values(pmStats).sort((a, x) => x.total - a.total);
     const pmMax = pmList.length ? pmList[0].total : 1;
 

@@ -51,7 +51,7 @@ export function seedUserData(userId: string, opts: { wipeMovements?: boolean } =
         catCustom: o.catCustom,
         tipo: o.tipo,
         moneda: o.moneda,
-        metodoPago: pmIdByKey.get(o.metodoPago) ?? "",
+        paymentMethodId: pmIdByKey.get(o.paymentMethodId) ?? null,
         sortOrder: i,
       })),
     )

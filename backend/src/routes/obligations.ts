@@ -24,7 +24,7 @@ function toObligation(row: typeof obligations.$inferSelect): Obligation {
     catCustom: row.catCustom,
     tipo: row.tipo as Obligation["tipo"],
     moneda: row.moneda,
-    metodoPago: row.metodoPago,
+    paymentMethodId: row.paymentMethodId,
     sortOrder: row.sortOrder,
   };
 }

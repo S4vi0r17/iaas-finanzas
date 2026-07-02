@@ -35,7 +35,7 @@ export function ObligationForm({ visible, onClose, editing }: Props) {
   const [fecha, setFecha] = useState(today());
   const [monto, setMonto] = useState('');
   const [moneda, setMoneda] = useState(user?.currency ?? 'PEN');
-  const [metodoPago, setMetodoPago] = useState('');
+  const [paymentMethodId, setPaymentMethodId] = useState('');
   const [cat, setCat] = useState('Otro');
   const [catCustom, setCatCustom] = useState('');
 
@@ -47,7 +47,7 @@ export function ObligationForm({ visible, onClose, editing }: Props) {
       setFecha(editing.fechaVenc || today());
       setMonto(String(editing.monto));
       setMoneda(editing.moneda);
-      setMetodoPago(editing.metodoPago);
+      setPaymentMethodId(editing.paymentMethodId ?? '');
       setCat(editing.cat || 'Otro');
       setCatCustom(editing.catCustom);
     } else {
@@ -56,7 +56,7 @@ export function ObligationForm({ visible, onClose, editing }: Props) {
       setFecha(today());
       setMonto('');
       setMoneda(user?.currency ?? 'PEN');
-      setMetodoPago('');
+      setPaymentMethodId('');
       setCat('Otro');
       setCatCustom('');
     }
@@ -82,7 +82,7 @@ export function ObligationForm({ visible, onClose, editing }: Props) {
       catCustom: catCustom.trim(),
       tipo,
       moneda,
-      metodoPago,
+      paymentMethodId: paymentMethodId || null,
     };
 
     try {
@@ -149,9 +149,9 @@ export function ObligationForm({ visible, onClose, editing }: Props) {
 
       <Picker
         label="Medio de pago"
-        value={metodoPago}
+        value={paymentMethodId}
         options={pmOptions}
-        onChange={setMetodoPago}
+        onChange={setPaymentMethodId}
       />
       <Picker label="Categoría" value={cat} options={CATEGORY_OPTIONS} onChange={setCat} />
       <Field
