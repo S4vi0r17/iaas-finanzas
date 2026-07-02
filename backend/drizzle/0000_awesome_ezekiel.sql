@@ -56,14 +56,14 @@ CREATE INDEX `obl_user` ON `obligations` (`user_id`);--> statement-breakpoint
 CREATE TABLE `payment_methods` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
-	`slot` text NOT NULL,
 	`name` text NOT NULL,
 	`type` text NOT NULL,
-	`active` integer DEFAULT false NOT NULL,
+	`active` integer DEFAULT true NOT NULL,
+	`sort_order` integer DEFAULT 0 NOT NULL,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `pm_user_slot` ON `payment_methods` (`user_id`,`slot`);--> statement-breakpoint
+CREATE INDEX `pm_user` ON `payment_methods` (`user_id`);--> statement-breakpoint
 CREATE TABLE `users` (
 	`id` text PRIMARY KEY NOT NULL,
 	`email` text NOT NULL,

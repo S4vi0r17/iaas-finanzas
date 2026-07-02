@@ -46,7 +46,7 @@ export function ExpenseForm({ visible, onClose }: { visible: boolean; onClose: (
     { value: '', label: 'Sin asignar' },
     ...(pmData?.paymentMethods ?? [])
       .filter((p) => p.active)
-      .map((p) => ({ value: p.slot, label: `${PM_ICONS[p.type]} ${p.name}` })),
+      .map((p) => ({ value: p.id, label: `${PM_ICONS[p.type]} ${p.name}` })),
   ];
   const oblOptions: Option[] = [
     { value: '', label: 'Sin relación' },

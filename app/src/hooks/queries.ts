@@ -1,4 +1,5 @@
 import type {
+  CreatePaymentMethodInput,
   Expense,
   ExpenseInput,
   Income,
@@ -6,7 +7,7 @@ import type {
   Obligation,
   ObligationInput,
   PaymentMethod,
-  UpdatePaymentMethodsInput,
+  UpdatePaymentMethodInput,
   UpdateUserInput,
   UserProfile,
 } from '@iaas/shared';
@@ -120,11 +121,23 @@ export function usePaymentMethods() {
   });
 }
 
-export function useUpdatePaymentMethods() {
+export function useCreatePaymentMethod() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: UpdatePaymentMethodsInput) =>
-      apiFetch<{ paymentMethods: PaymentMethod[] }>('/api/payment-methods', {
+    mutationFn: (body: CreatePaymentMethodInput) =>
+      apiFetch<{ paymentMethod: PaymentMethod }>('/api/payment-methods', {
+        method: 'POST',
+        body,
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['payment-methods'] }),
+  });
+}
+
+export function useUpdatePaymentMethod() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: UpdatePaymentMethodInput & { id: string }) =>
+      apiFetch<{ paymentMethod: PaymentMethod }>(`/api/payment-methods/${id}`, {
         method: 'PATCH',
         body,
       }),

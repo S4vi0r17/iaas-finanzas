@@ -27,11 +27,11 @@ export default function ResumenScreen() {
   const expenses = expData?.expenses ?? [];
   const incomes = incData?.incomes ?? [];
 
-  function pmName(slot: string) {
-    return pmData?.paymentMethods.find((p) => p.slot === slot)?.name ?? slot;
+  function pmName(id: string) {
+    return pmData?.paymentMethods.find((p) => p.id === id)?.name ?? id;
   }
-  function pmIcon(slot: string) {
-    const pm = pmData?.paymentMethods.find((p) => p.slot === slot);
+  function pmIcon(id: string) {
+    const pm = pmData?.paymentMethods.find((p) => p.id === id);
     return pm ? PM_ICONS[pm.type] : '❓';
   }
 
@@ -59,12 +59,12 @@ export default function ResumenScreen() {
 
     // Uso por medio de pago (solo moneda base)
     const pmStats: Record<string, PmStat> = {};
-    const addPm = (slot: string, amt: number, cat: string) => {
-      const k = slot || 'xx';
+    const addPm = (id: string, amt: number, cat: string) => {
+      const k = id || 'xx';
       if (!pmStats[k]) {
         pmStats[k] = {
-          name: slot ? pmName(slot) : 'Sin asignar',
-          icon: slot ? pmIcon(slot) : '❓',
+          name: id ? pmName(id) : 'Sin asignar',
+          icon: id ? pmIcon(id) : '❓',
           total: 0,
           count: 0,
           cats: {},

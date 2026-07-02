@@ -66,7 +66,7 @@ export function ObligationForm({ visible, onClose, editing }: Props) {
     { value: '', label: 'Sin asignar' },
     ...(pmData?.paymentMethods ?? [])
       .filter((p) => p.active)
-      .map((p) => ({ value: p.slot, label: `${PM_ICONS[p.type]} ${p.name}` })),
+      .map((p) => ({ value: p.id, label: `${PM_ICONS[p.type]} ${p.name}` })),
   ];
 
   async function onSave() {

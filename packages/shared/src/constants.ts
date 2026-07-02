@@ -39,36 +39,36 @@ export const PM_ICONS: Record<PmType, string> = {
   prestamo: "🏦",
 };
 
-/** Slots fijos por usuario (5 crédito, 5 débito, 1 efectivo, 3 préstamos). */
+export const PM_TYPE_LABELS: Record<PmType, string> = {
+  credito: "Crédito",
+  debito: "Débito",
+  efectivo: "Efectivo",
+  prestamo: "Préstamo",
+};
+
+/** Opciones para el selector de tipo al crear/editar un medio de pago. */
+export const PM_TYPE_OPTIONS = PM_TYPES.map((t) => ({
+  value: t,
+  label: `${PM_ICONS[t]} ${PM_TYPE_LABELS[t]}`,
+}));
+
+/**
+ * Medios de pago iniciales que se crean al registrarse. El usuario puede
+ * editarlos, desactivarlos y agregar los suyos. `key` es un identificador
+ * interno usado solo por el seed para enlazar las obligaciones semilla; no
+ * se guarda en la DB (allí cada medio tiene su propio `id`).
+ */
 export const DEFAULT_PAYMENT_METHODS = [
-  { slot: "cc1", name: "Tarjeta Credito 1", type: "credito", active: true },
-  { slot: "cc2", name: "Tarjeta Credito 2", type: "credito", active: false },
-  { slot: "cc3", name: "Tarjeta Credito 3", type: "credito", active: false },
-  { slot: "cc4", name: "Tarjeta Credito 4", type: "credito", active: false },
-  { slot: "cc5", name: "Tarjeta Credito 5", type: "credito", active: false },
-  { slot: "dc1", name: "Tarjeta Debito 1", type: "debito", active: true },
-  { slot: "dc2", name: "Tarjeta Debito 2", type: "debito", active: false },
-  { slot: "dc3", name: "Tarjeta Debito 3", type: "debito", active: false },
-  { slot: "dc4", name: "Tarjeta Debito 4", type: "debito", active: false },
-  { slot: "dc5", name: "Tarjeta Debito 5", type: "debito", active: false },
-  { slot: "ef", name: "Efectivo", type: "efectivo", active: true },
-  { slot: "pr1", name: "Prestamo Personal", type: "prestamo", active: true },
-  { slot: "pr2", name: "Prestamo 2", type: "prestamo", active: false },
-  { slot: "pr3", name: "Prestamo 3", type: "prestamo", active: false },
+  { key: "ef", name: "Efectivo", type: "efectivo", active: true },
+  { key: "cc1", name: "Tarjeta de Crédito", type: "credito", active: true },
+  { key: "dc1", name: "Tarjeta de Débito", type: "debito", active: true },
+  { key: "pr1", name: "Préstamo Personal", type: "prestamo", active: true },
 ] as const satisfies ReadonlyArray<{
-  slot: string;
+  key: string;
   name: string;
   type: PmType;
   active: boolean;
 }>;
-
-/** Agrupación usada por la pantalla de Ajustes. */
-export const PM_GROUPS = [
-  { label: "💳 Tarjetas de Credito (max 5)", slots: ["cc1", "cc2", "cc3", "cc4", "cc5"] },
-  { label: "🏧 Tarjetas de Debito (max 5)", slots: ["dc1", "dc2", "dc3", "dc4", "dc5"] },
-  { label: "💵 Efectivo", slots: ["ef"] },
-  { label: "🏦 Prestamos (max 3)", slots: ["pr1", "pr2", "pr3"] },
-] as const;
 
 // ─── Obligaciones por defecto (seed al registrarse) ───────────────────
 export const SEED_OBLIGATIONS = [

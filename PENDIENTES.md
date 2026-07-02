@@ -34,17 +34,16 @@ Estado actual del CRUD por recurso:
 - Usuario: completo (ver, editar).
 - Gastos: faltan editar (falta PATCH /api/expenses/:id y su UI). Hoy: crear, listar, borrar.
 - Ingresos: faltan editar (falta PATCH /api/incomes/:id y su UI). Hoy: crear, listar, borrar.
-- Medios de pago: falta crear real (upsert) para usuarios vacios y la UI en Ajustes.
-  Hoy: listar y editar por slot existente.
+- Medios de pago: completo. Lista libre por usuario (no slots fijos). Crear (POST),
+  editar nombre/tipo, desactivar (PATCH active:false). UI en Ajustes con "Agregar".
 - Reordenar obligaciones: backend listo (PATCH /obligations/reorder), falta UI con flechas.
 
 ## Importante (pendiente por resolver)
 
-- Registro ahora crea el usuario VACIO (sin medios de pago). La UI de Ajustes hoy solo
-  edita slots existentes (PATCH por slot), asi que un usuario real nuevo no puede crear
-  sus medios de pago sin llamar a /api/seed. Pendiente: que el guardado de medios de pago
-  haga upsert (crear si no existe) y que Ajustes muestre los 14 slots por defecto aunque
-  no existan aun en la DB.
+- Registro sigue creando el usuario VACIO (sin medios de pago). Ya no es bloqueante:
+  Ajustes permite agregar medios de pago desde cero con POST /api/payment-methods.
+  Pendiente opcional: sembrar unos pocos medios por defecto al registrarse (hoy solo
+  los crea /api/seed) para que la cuenta nueva no arranque totalmente vacia.
 
 ## Mejoras menores
 
@@ -67,5 +66,5 @@ Estado actual del CRUD por recurso:
 - Backend local: `cd backend && JWT_SECRET=dev DB_PATH=./data/dev.sqlite bun run dev`.
 - App: `cd app && bunx expo start`.
 - Deploy backend en Dokploy con el Dockerfile de la raiz. El SQLite va en volumen persistente (/app/data).
-- Datos por defecto: constantes SEED_OBLIGATIONS y DEFAULT_PAYMENT_METHODS en packages/shared. Se insertan al registrar usuario (backend/src/lib/seed.ts). Los catalogos (monedas, categorias) son constantes en shared, no estan en la DB.
+- Datos por defecto: constantes SEED_OBLIGATIONS y DEFAULT_PAYMENT_METHODS en packages/shared. Los inserta /api/seed (backend/src/lib/seed.ts), no el registro. DEFAULT_PAYMENT_METHODS usa una `key` interna (ef, cc1, dc1, pr1) solo para enlazar las obligaciones semilla a los ids generados; en la DB cada medio tiene su propio id. Los catalogos (monedas, categorias) son constantes en shared, no estan en la DB.
 - Commits: estilo conventional, en ingles, breves, sin coautor. Push por cada paso.

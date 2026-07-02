@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "e705d1aa-f07e-4f1b-af52-f876053c17df",
+  "id": "4cfcaa75-f9f4-4052-9d22-7b1ecb790533",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "expenses": {
@@ -421,13 +421,6 @@
           "notNull": true,
           "autoincrement": false
         },
-        "slot": {
-          "name": "slot",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
         "name": {
           "name": "name",
           "type": "text",
@@ -448,17 +441,24 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": false
+          "default": true
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
         }
       },
       "indexes": {
-        "pm_user_slot": {
-          "name": "pm_user_slot",
+        "pm_user": {
+          "name": "pm_user",
           "columns": [
-            "user_id",
-            "slot"
+            "user_id"
           ],
-          "isUnique": true
+          "isUnique": false
         }
       },
       "foreignKeys": {

@@ -18,16 +18,23 @@ export function seedUserData(userId: string, opts: { wipeMovements?: boolean } =
     db.delete(incomes).where(eq(incomes.userId, userId)).run();
   }
 
+  // Insertar medios de pago con ids nuevos y recordar key → id para enlazar
+  // las obligaciones semilla (que referencian por key).
+  const pmIdByKey = new Map<string, string>();
   db.insert(paymentMethods)
     .values(
-      DEFAULT_PAYMENT_METHODS.map((pm) => ({
-        id: randomUUID(),
-        userId,
-        slot: pm.slot,
-        name: pm.name,
-        type: pm.type,
-        active: pm.active,
-      })),
+      DEFAULT_PAYMENT_METHODS.map((pm, i) => {
+        const id = randomUUID();
+        pmIdByKey.set(pm.key, id);
+        return {
+          id,
+          userId,
+          name: pm.name,
+          type: pm.type,
+          active: pm.active,
+          sortOrder: i,
+        };
+      }),
     )
     .run();
 
@@ -44,7 +51,7 @@ export function seedUserData(userId: string, opts: { wipeMovements?: boolean } =
         catCustom: o.catCustom,
         tipo: o.tipo,
         moneda: o.moneda,
-        metodoPago: o.metodoPago,
+        metodoPago: pmIdByKey.get(o.metodoPago) ?? "",
         sortOrder: i,
       })),
     )

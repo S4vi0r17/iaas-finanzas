@@ -22,8 +22,8 @@ export default function GastosScreen() {
   const baseCurrency = user?.currency ?? 'PEN';
   const expenses = data?.expenses ?? [];
 
-  function pmLabel(slot: string) {
-    const pm = pmData?.paymentMethods.find((p) => p.slot === slot);
+  function pmLabel(id: string) {
+    const pm = pmData?.paymentMethods.find((p) => p.id === id);
     return pm ? `${PM_ICONS[pm.type]} ${pm.name}` : '';
   }
 

@@ -57,24 +57,28 @@ export const updateUserInput = z
 
 // ─── Medios de pago ───────────────────────────────────────────────────
 export const paymentMethod = z.object({
-  slot: z.string(),
+  id: z.string(),
   name: shortText.min(1),
   type: pmType,
   active: z.boolean(),
+  sortOrder: z.number().int(),
 });
 
-/** Actualización masiva desde Ajustes (solo name + active editables). */
-export const updatePaymentMethodsInput = z.object({
-  items: z
-    .array(
-      z.object({
-        slot: z.string(),
-        name: shortText.min(1),
-        active: z.boolean(),
-      }),
-    )
-    .max(14),
+/** Crear un medio de pago desde Ajustes. */
+export const createPaymentMethodInput = z.object({
+  name: shortText.min(1),
+  type: pmType,
+  active: z.boolean().default(true),
 });
+
+/** Editar un medio de pago existente (todos los campos opcionales). */
+export const updatePaymentMethodInput = z
+  .object({
+    name: shortText.min(1),
+    type: pmType,
+    active: z.boolean(),
+  })
+  .partial();
 
 // ─── Obligaciones ─────────────────────────────────────────────────────
 export const obligationInput = z.object({
@@ -135,7 +139,8 @@ export type LoginInput = z.infer<typeof loginInput>;
 export type UserProfile = z.infer<typeof userProfile>;
 export type UpdateUserInput = z.infer<typeof updateUserInput>;
 export type PaymentMethod = z.infer<typeof paymentMethod>;
-export type UpdatePaymentMethodsInput = z.infer<typeof updatePaymentMethodsInput>;
+export type CreatePaymentMethodInput = z.infer<typeof createPaymentMethodInput>;
+export type UpdatePaymentMethodInput = z.infer<typeof updatePaymentMethodInput>;
 export type ObligationInput = z.infer<typeof obligationInput>;
 export type Obligation = z.infer<typeof obligation>;
 export type ReorderObligationsInput = z.infer<typeof reorderObligationsInput>;

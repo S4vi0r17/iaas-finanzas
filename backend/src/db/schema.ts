@@ -6,7 +6,6 @@ import {
   real,
   sqliteTable,
   text,
-  uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 
 // ─── Usuarios ─────────────────────────────────────────────────────────
@@ -22,7 +21,7 @@ export const users = sqliteTable("users", {
   createdAt: integer("created_at").notNull().default(sql`(unixepoch())`),
 });
 
-// ─── Medios de pago (14 slots fijos por usuario) ──────────────────────
+// ─── Medios de pago (lista libre por usuario) ─────────────────────────
 export const paymentMethods = sqliteTable(
   "payment_methods",
   {
@@ -30,13 +29,13 @@ export const paymentMethods = sqliteTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    slot: text("slot").notNull(), // cc1..cc5, dc1..dc5, ef, pr1..pr3
     name: text("name").notNull(),
     type: text("type").notNull(), // credito | debito | efectivo | prestamo
-    active: integer("active", { mode: "boolean" }).notNull().default(false),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
   },
   (t) => ({
-    userSlot: uniqueIndex("pm_user_slot").on(t.userId, t.slot),
+    byUser: index("pm_user").on(t.userId),
   }),
 );
 
@@ -56,7 +55,7 @@ export const obligations = sqliteTable(
     catCustom: text("cat_custom").notNull().default(""),
     tipo: text("tipo").notNull().default("gasto"), // gasto | inversion
     moneda: text("moneda").notNull().default("PEN"),
-    metodoPago: text("metodo_pago").notNull().default(""), // slot
+    metodoPago: text("metodo_pago").notNull().default(""), // id del medio de pago
     sortOrder: integer("sort_order").notNull().default(0),
   },
   (t) => ({
@@ -94,7 +93,7 @@ export const expenses = sqliteTable(
     monto: real("monto").notNull(),
     cat: text("cat").notNull().default("Otro"),
     catCustom: text("cat_custom").notNull().default(""),
-    fuente: text("fuente").notNull().default(""), // slot
+    fuente: text("fuente").notNull().default(""), // id del medio de pago
     oblRef: text("obl_ref").notNull().default(""),
     fecha: text("fecha").notNull(), // YYYY-MM-DD
     moneda: text("moneda").notNull().default("PEN"),
