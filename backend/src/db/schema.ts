@@ -1,12 +1,5 @@
 import { sql } from "drizzle-orm";
-import {
-  index,
-  integer,
-  primaryKey,
-  real,
-  sqliteTable,
-  text,
-} from "drizzle-orm/sqlite-core";
+import { index, integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 // ─── Usuarios ─────────────────────────────────────────────────────────
 export const users = sqliteTable("users", {
@@ -48,8 +41,7 @@ export const obligations = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     nombre: text("nombre").notNull(),
-    fechaVenc: text("fecha_venc").notNull().default(""), // YYYY-MM-DD o ""
-    dia: integer("dia").notNull().default(1),
+    dia: integer("dia").notNull().default(1), // día de vencimiento (1-31), recurrente cada mes
     monto: real("monto").notNull().default(0),
     cat: text("cat").notNull().default("Otro"),
     catCustom: text("cat_custom").notNull().default(""),
@@ -65,23 +57,8 @@ export const obligations = sqliteTable(
   }),
 );
 
-// ─── Estado de pago por mes ───────────────────────────────────────────
-export const obligationStatus = sqliteTable(
-  "obligation_status",
-  {
-    userId: text("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    obligationId: text("obligation_id")
-      .notNull()
-      .references(() => obligations.id, { onDelete: "cascade" }),
-    monthKey: text("month_key").notNull(), // YYYY-MM
-    status: text("status").notNull().default("pagado"),
-  },
-  (t) => ({
-    pk: primaryKey({ columns: [t.userId, t.obligationId, t.monthKey] }),
-  }),
-);
+// Nota: no hay tabla de "estado de pago". Una obligación se considera pagada
+// en un mes si tiene ≥1 gasto ligado (expenses.obligation_id) en ese mes.
 
 // ─── Gastos variables ─────────────────────────────────────────────────
 export const expenses = sqliteTable(

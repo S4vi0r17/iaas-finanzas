@@ -18,9 +18,17 @@ const STYLES: Record<StatusKey, StatusStyle> = {
 };
 
 /**
- * Calcula el estado de una obligación para el mes seleccionado.
- * Réplica de la función gst() del HTML original.
+ * Fecha de vencimiento concreta para el mes seleccionado, a partir del día
+ * recurrente de la obligación. Si el día no existe en el mes (ej. 31 en
+ * febrero), se ajusta al último día del mes.
  */
+export function dueDate(dia: number, selYear: number, selMonth: number): Date {
+  const lastDay = new Date(selYear, selMonth, 0).getDate();
+  const d = Math.min(Math.max(dia, 1), lastDay);
+  return new Date(selYear, selMonth - 1, d);
+}
+
+/** Calcula el estado de una obligación para el mes seleccionado. */
 export function computeStatus(
   o: Obligation,
   paid: boolean,
@@ -30,28 +38,12 @@ export function computeStatus(
   if (paid) return STYLES.Pagado;
 
   const t = new Date();
-  const ty = t.getFullYear();
-  const tm = t.getMonth() + 1;
-  const td = t.getDate();
+  const today = new Date(t.getFullYear(), t.getMonth(), t.getDate());
+  const due = dueDate(o.dia, selYear, selMonth);
+  const diff = Math.round((due.getTime() - today.getTime()) / 86400000);
 
-  if (o.fechaVenc) {
-    const [y, m, d] = o.fechaVenc.split('-').map(Number);
-    const diff = Math.round(
-      (new Date(y, m - 1, d).getTime() - new Date(ty, tm - 1, td).getTime()) / 86400000,
-    );
-    if (diff < 0) return STYLES.Retrasado;
-    if (diff === 0) return STYLES['Vence hoy'];
-    if (diff <= 5) return STYLES.Proximo;
-    return STYLES.Pendiente;
-  }
-
-  // Sin fecha exacta: se usa el día del mes seleccionado
-  if (selYear > ty || (selYear === ty && selMonth > tm)) return STYLES.Pendiente;
-  if (selYear < ty || (selYear === ty && selMonth < tm)) return STYLES.Retrasado;
-
-  const d = o.dia - td;
-  if (d < 0) return STYLES.Retrasado;
-  if (d === 0) return STYLES['Vence hoy'];
-  if (d <= 5) return STYLES.Proximo;
+  if (diff < 0) return STYLES.Retrasado;
+  if (diff === 0) return STYLES['Vence hoy'];
+  if (diff <= 5) return STYLES.Proximo;
   return STYLES.Pendiente;
 }

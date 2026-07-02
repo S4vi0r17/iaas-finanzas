@@ -14,7 +14,6 @@ import { Picker, type Option } from '@/components/ui/Picker';
 import { Segmented } from '@/components/ui/Segmented';
 import { usePaymentMethods, useSaveObligation } from '@/hooks/queries';
 import { useAuth } from '@/lib/auth';
-import { today } from '@/lib/format';
 
 const CURRENCY_OPTIONS: Option[] = CURRENCIES.map((c) => ({ value: c.c, label: `${c.s} ${c.c}` }));
 const CATEGORY_OPTIONS: Option[] = OBLIGATION_CATEGORIES.map((c) => ({ value: c, label: c }));
@@ -32,7 +31,7 @@ export function ObligationForm({ visible, onClose, editing }: Props) {
 
   const [tipo, setTipo] = useState<'gasto' | 'inversion'>('gasto');
   const [nombre, setNombre] = useState('');
-  const [fecha, setFecha] = useState(today());
+  const [dia, setDia] = useState(String(new Date().getDate()));
   const [monto, setMonto] = useState('');
   const [moneda, setMoneda] = useState(user?.currency ?? 'PEN');
   const [paymentMethodId, setPaymentMethodId] = useState('');
@@ -44,7 +43,7 @@ export function ObligationForm({ visible, onClose, editing }: Props) {
     if (editing) {
       setTipo(editing.tipo);
       setNombre(editing.nombre);
-      setFecha(editing.fechaVenc || today());
+      setDia(String(editing.dia));
       setMonto(String(editing.monto));
       setMoneda(editing.moneda);
       setPaymentMethodId(editing.paymentMethodId ?? '');
@@ -53,7 +52,7 @@ export function ObligationForm({ visible, onClose, editing }: Props) {
     } else {
       setTipo('gasto');
       setNombre('');
-      setFecha(today());
+      setDia(String(new Date().getDate()));
       setMonto('');
       setMoneda(user?.currency ?? 'PEN');
       setPaymentMethodId('');
@@ -71,12 +70,13 @@ export function ObligationForm({ visible, onClose, editing }: Props) {
 
   async function onSave() {
     if (!nombre.trim()) return Alert.alert('Falta la descripción');
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return Alert.alert('Fecha inválida', 'Usa el formato AAAA-MM-DD');
+    const diaNum = Number(dia);
+    if (!Number.isInteger(diaNum) || diaNum < 1 || diaNum > 31)
+      return Alert.alert('Día inválido', 'Ingresa un día del mes entre 1 y 31');
 
     const data: ObligationInput = {
       nombre: nombre.trim(),
-      fechaVenc: fecha,
-      dia: Number(fecha.split('-')[2]) || 1,
+      dia: diaNum,
       monto: parseFloat(monto) || 0,
       cat,
       catCustom: catCustom.trim(),
@@ -125,11 +125,12 @@ export function ObligationForm({ visible, onClose, editing }: Props) {
         placeholder="Ej: Hipoteca BCP, Visa Scotiabank"
       />
       <Field
-        label="Fecha de vencimiento *"
-        value={fecha}
-        onChangeText={setFecha}
-        placeholder="AAAA-MM-DD"
-        hint="Formato: 2026-06-15"
+        label="Día de vencimiento *"
+        value={dia}
+        onChangeText={setDia}
+        placeholder="1-31"
+        keyboardType="number-pad"
+        hint="Se repite cada mes (ej. 5 = vence el día 5)"
       />
 
       <View className="flex-row gap-3">

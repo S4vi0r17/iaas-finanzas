@@ -28,21 +28,10 @@ CREATE TABLE `incomes` (
 );
 --> statement-breakpoint
 CREATE INDEX `inc_user_fecha` ON `incomes` (`user_id`,`fecha`);--> statement-breakpoint
-CREATE TABLE `obligation_status` (
-	`user_id` text NOT NULL,
-	`obligation_id` text NOT NULL,
-	`month_key` text NOT NULL,
-	`status` text DEFAULT 'pagado' NOT NULL,
-	PRIMARY KEY(`user_id`, `obligation_id`, `month_key`),
-	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade,
-	FOREIGN KEY (`obligation_id`) REFERENCES `obligations`(`id`) ON UPDATE no action ON DELETE cascade
-);
---> statement-breakpoint
 CREATE TABLE `obligations` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
 	`nombre` text NOT NULL,
-	`fecha_venc` text DEFAULT '' NOT NULL,
 	`dia` integer DEFAULT 1 NOT NULL,
 	`monto` real DEFAULT 0 NOT NULL,
 	`cat` text DEFAULT 'Otro' NOT NULL,

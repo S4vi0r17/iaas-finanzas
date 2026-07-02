@@ -72,14 +72,14 @@ export const DEFAULT_PAYMENT_METHODS = [
 
 // ─── Obligaciones por defecto (seed al registrarse) ───────────────────
 export const SEED_OBLIGATIONS = [
-  { nombre: "Alquiler/Hipoteca", fechaVenc: "", dia: 5, monto: 1500, cat: "Credito", catCustom: "", tipo: "inversion", moneda: "PEN", paymentMethodId: "pr1" },
-  { nombre: "Seguro de salud", fechaVenc: "", dia: 1, monto: 100, cat: "Salud", catCustom: "", tipo: "gasto", moneda: "PEN", paymentMethodId: "cc1" },
-  { nombre: "Celular", fechaVenc: "", dia: 1, monto: 60, cat: "Servicio", catCustom: "", tipo: "gasto", moneda: "PEN", paymentMethodId: "dc1" },
-  { nombre: "Internet", fechaVenc: "", dia: 10, monto: 89, cat: "Servicio", catCustom: "", tipo: "gasto", moneda: "PEN", paymentMethodId: "dc1" },
-  { nombre: "Tarjeta de credito", fechaVenc: "", dia: 25, monto: 300, cat: "Tarjeta", catCustom: "", tipo: "gasto", moneda: "PEN", paymentMethodId: "cc1" },
-  { nombre: "Prestamo personal", fechaVenc: "", dia: 15, monto: 200, cat: "Prestamo", catCustom: "", tipo: "gasto", moneda: "PEN", paymentMethodId: "pr1" },
-  { nombre: "Seguro de vida", fechaVenc: "", dia: 1, monto: 80, cat: "Seguro", catCustom: "", tipo: "gasto", moneda: "PEN", paymentMethodId: "ef" },
-  { nombre: "Ahorro mensual", fechaVenc: "", dia: 1, monto: 200, cat: "Ahorro", catCustom: "", tipo: "inversion", moneda: "PEN", paymentMethodId: "dc1" },
+  { nombre: "Alquiler/Hipoteca", dia: 5, monto: 1500, cat: "Credito", catCustom: "", tipo: "inversion", moneda: "PEN", paymentMethodId: "pr1" },
+  { nombre: "Seguro de salud", dia: 1, monto: 100, cat: "Salud", catCustom: "", tipo: "gasto", moneda: "PEN", paymentMethodId: "cc1" },
+  { nombre: "Celular", dia: 1, monto: 60, cat: "Servicio", catCustom: "", tipo: "gasto", moneda: "PEN", paymentMethodId: "dc1" },
+  { nombre: "Internet", dia: 10, monto: 89, cat: "Servicio", catCustom: "", tipo: "gasto", moneda: "PEN", paymentMethodId: "dc1" },
+  { nombre: "Tarjeta de credito", dia: 25, monto: 300, cat: "Tarjeta", catCustom: "", tipo: "gasto", moneda: "PEN", paymentMethodId: "cc1" },
+  { nombre: "Prestamo personal", dia: 15, monto: 200, cat: "Prestamo", catCustom: "", tipo: "gasto", moneda: "PEN", paymentMethodId: "pr1" },
+  { nombre: "Seguro de vida", dia: 1, monto: 80, cat: "Seguro", catCustom: "", tipo: "gasto", moneda: "PEN", paymentMethodId: "ef" },
+  { nombre: "Ahorro mensual", dia: 1, monto: 200, cat: "Ahorro", catCustom: "", tipo: "inversion", moneda: "PEN", paymentMethodId: "dc1" },
 ] as const;
 
 // ─── Categorías ───────────────────────────────────────────────────────

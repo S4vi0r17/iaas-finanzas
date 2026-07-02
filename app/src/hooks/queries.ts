@@ -45,15 +45,6 @@ export function useDeleteObligation() {
   });
 }
 
-export function useTogglePaid() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, monthKey, paid }: { id: string; monthKey: string; paid: boolean }) =>
-      apiFetch(`/api/obligations/${id}/status`, { method: 'POST', body: { monthKey, paid } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['obligations'] }),
-  });
-}
-
 export function useReorderObligations() {
   const qc = useQueryClient();
   return useMutation({
@@ -76,7 +67,11 @@ export function useCreateExpense() {
   return useMutation({
     mutationFn: (data: ExpenseInput) =>
       apiFetch<{ expense: Expense }>('/api/expenses', { method: 'POST', body: data }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['expenses'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['expenses'] });
+      // "Pagada" de una obligación se deriva de sus gastos ligados.
+      qc.invalidateQueries({ queryKey: ['obligations'] });
+    },
   });
 }
 
@@ -84,7 +79,10 @@ export function useDeleteExpense() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => apiFetch(`/api/expenses/${id}`, { method: 'DELETE' }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['expenses'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['expenses'] });
+      qc.invalidateQueries({ queryKey: ['obligations'] });
+    },
   });
 }
 

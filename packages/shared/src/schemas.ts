@@ -10,9 +10,6 @@ export const dateStr = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de fecha inválido (YYYY-MM-DD)");
 
-/** Fecha de vencimiento: puede ir vacía (se usa `dia` en su lugar). */
-export const optionalDateStr = z.union([dateStr, z.literal("")]);
-
 export const currencyCode = z
   .string()
   .refine((v) => (CURRENCY_CODES as readonly string[]).includes(v), "Moneda no soportada");
@@ -89,8 +86,7 @@ export const updatePaymentMethodInput = z
 // ─── Obligaciones ─────────────────────────────────────────────────────
 export const obligationInput = z.object({
   nombre: shortText.min(1, "Descripción requerida"),
-  fechaVenc: optionalDateStr.default(""),
-  dia: z.number().int().min(1).max(31),
+  dia: z.number().int().min(1).max(31), // día de vencimiento, recurrente cada mes
   monto: money,
   cat: shortText.default("Otro"),
   catCustom: shortText.default(""),
@@ -106,11 +102,6 @@ export const obligation = obligationInput.extend({
 
 export const reorderObligationsInput = z.object({
   orderedIds: z.array(z.string()),
-});
-
-export const setStatusInput = z.object({
-  monthKey,
-  paid: z.boolean(),
 });
 
 // ─── Gastos ───────────────────────────────────────────────────────────
@@ -150,7 +141,6 @@ export type UpdatePaymentMethodInput = z.infer<typeof updatePaymentMethodInput>;
 export type ObligationInput = z.infer<typeof obligationInput>;
 export type Obligation = z.infer<typeof obligation>;
 export type ReorderObligationsInput = z.infer<typeof reorderObligationsInput>;
-export type SetStatusInput = z.infer<typeof setStatusInput>;
 export type ExpenseInput = z.infer<typeof expenseInput>;
 export type Expense = z.infer<typeof expense>;
 export type IncomeInput = z.infer<typeof incomeInput>;

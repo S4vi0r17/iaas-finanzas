@@ -11,15 +11,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ObligationForm } from '@/components/ObligationForm';
 import { AppHeader } from '@/components/ui/AppHeader';
 import { Metrics, type Metric } from '@/components/ui/Metrics';
-import {
-  useDeleteObligation,
-  useObligations,
-  usePaymentMethods,
-  useTogglePaid,
-} from '@/hooks/queries';
+import { useDeleteObligation, useObligations, usePaymentMethods } from '@/hooks/queries';
 import { useMonth } from '@/hooks/useMonth';
 import { useAuth } from '@/lib/auth';
-import { fmt, fmtShort, formatDate } from '@/lib/format';
+import { fmt, fmtShort } from '@/lib/format';
 import { computeStatus, type StatusKey } from '@/lib/obligationStatus';
 
 const FILTERS: { value: string; label: string }[] = [
@@ -35,7 +30,6 @@ export default function ObligacionesScreen() {
   const { monthKey, year, month } = useMonth();
   const { data, isLoading } = useObligations(monthKey);
   const { data: pmData } = usePaymentMethods();
-  const togglePaid = useTogglePaid();
   const deleteObl = useDeleteObligation();
 
   const [search, setSearch] = useState('');
@@ -154,9 +148,6 @@ export default function ObligacionesScreen() {
             month={month}
             pmLabel={pmLabel(item.paymentMethodId)}
             baseCurrency={baseCurrency}
-            onToggle={() =>
-              togglePaid.mutate({ id: item.id, monthKey, paid: !paidIds.includes(item.id) })
-            }
             onEdit={() => {
               setEditing(item);
               setFormOpen(true);
@@ -187,7 +178,6 @@ function ObligationCard({
   month,
   pmLabel,
   baseCurrency,
-  onToggle,
   onEdit,
   onDelete,
 }: {
@@ -197,13 +187,12 @@ function ObligationCard({
   month: number;
   pmLabel: string;
   baseCurrency: string;
-  onToggle: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }) {
   const status = computeStatus(o, paid, year, month);
   const icon = OBLIGATION_CATEGORY_ICONS[o.cat] ?? '📋';
-  const dateLabel = o.fechaVenc ? formatDate(o.fechaVenc) : o.dia ? `Día ${o.dia}` : '';
+  const dateLabel = `Día ${o.dia}`;
   const showCurrency = o.moneda !== baseCurrency;
 
   return (
@@ -224,7 +213,6 @@ function ObligationCard({
           {pmLabel ? <Pill text={pmLabel} tone="green" /> : null}
         </View>
         <View className="mt-2 flex-row gap-2">
-          <ActionBtn label={paid ? '✓' : '○'} onPress={onToggle} tint={paid ? '#16a34a' : '#64748b'} />
           <ActionBtn label="✎" onPress={onEdit} />
           <ActionBtn label="🗑" onPress={onDelete} />
         </View>

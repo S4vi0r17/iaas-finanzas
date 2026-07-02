@@ -2,14 +2,13 @@ import {
   MAX_FREE_OBLIGATIONS,
   obligationInput,
   reorderObligationsInput,
-  setStatusInput,
   type Obligation,
 } from "@iaas/shared";
-import { and, asc, eq, max } from "drizzle-orm";
+import { and, asc, eq, isNotNull, like, max } from "drizzle-orm";
 import { Hono } from "hono";
 import { randomUUID } from "node:crypto";
 import { db } from "../db/client";
-import { obligations, obligationStatus, users } from "../db/schema";
+import { expenses, obligations, users } from "../db/schema";
 import { parseBody } from "../lib/http";
 import type { AuthEnv } from "../middleware/auth";
 
@@ -17,7 +16,6 @@ function toObligation(row: typeof obligations.$inferSelect): Obligation {
   return {
     id: row.id,
     nombre: row.nombre,
-    fechaVenc: row.fechaVenc,
     dia: row.dia,
     monto: row.monto,
     cat: row.cat,
@@ -41,15 +39,22 @@ obligationRoutes.get("/", (c) => {
     .orderBy(asc(obligations.sortOrder))
     .all();
 
+  // Una obligación está "pagada" en el mes si tiene ≥1 gasto ligado ese mes.
   const month = c.req.query("month");
   let paidIds: string[] = [];
   if (month) {
-    paidIds = db
-      .select({ id: obligationStatus.obligationId })
-      .from(obligationStatus)
-      .where(and(eq(obligationStatus.userId, userId), eq(obligationStatus.monthKey, month)))
-      .all()
-      .map((r) => r.id);
+    const linked = db
+      .select({ id: expenses.obligationId })
+      .from(expenses)
+      .where(
+        and(
+          eq(expenses.userId, userId),
+          like(expenses.fecha, `${month}-%`),
+          isNotNull(expenses.obligationId),
+        ),
+      )
+      .all();
+    paidIds = [...new Set(linked.map((r) => r.id).filter((id): id is string => id !== null))];
   }
 
   return c.json({ obligations: rows.map(toObligation), paidIds });
@@ -123,34 +128,3 @@ obligationRoutes.delete("/:id", (c) => {
   return c.json({ ok: true });
 });
 
-/** Marca/desmarca como pagada en un mes concreto. */
-obligationRoutes.post("/:id/status", async (c) => {
-  const userId = c.get("userId");
-  const id = c.req.param("id");
-  const { monthKey, paid } = await parseBody(c, setStatusInput);
-
-  const owned = db
-    .select({ id: obligations.id })
-    .from(obligations)
-    .where(and(eq(obligations.id, id), eq(obligations.userId, userId)))
-    .get();
-  if (!owned) return c.json({ error: "No encontrada" }, 404);
-
-  if (paid) {
-    db.insert(obligationStatus)
-      .values({ userId, obligationId: id, monthKey, status: "pagado" })
-      .onConflictDoNothing()
-      .run();
-  } else {
-    db.delete(obligationStatus)
-      .where(
-        and(
-          eq(obligationStatus.userId, userId),
-          eq(obligationStatus.obligationId, id),
-          eq(obligationStatus.monthKey, monthKey),
-        ),
-      )
-      .run();
-  }
-  return c.json({ ok: true, paid });
-});
