@@ -66,5 +66,8 @@ Estado actual del CRUD por recurso:
 - Backend local: `cd backend && JWT_SECRET=dev DB_PATH=./data/dev.sqlite bun run dev`.
 - App: `cd app && bunx expo start`.
 - Deploy backend en Dokploy con el Dockerfile de la raiz. El SQLite va en volumen persistente (/app/data).
+- Integridad referencial: obligations.payment_method_id, expenses.payment_method_id y
+  expenses.obligation_id son FK reales (convencion tabla_id) con ON DELETE SET NULL.
+  NULL = "sin asignar" (ya no se usa "" para eso). El input Zod convierte ""/ausente -> null.
 - Datos por defecto: constantes SEED_OBLIGATIONS y DEFAULT_PAYMENT_METHODS en packages/shared. Los inserta /api/seed (backend/src/lib/seed.ts), no el registro. DEFAULT_PAYMENT_METHODS usa una `key` interna (ef, cc1, dc1, pr1) solo para enlazar las obligaciones semilla a los ids generados; en la DB cada medio tiene su propio id. Los catalogos (monedas, categorias) son constantes en shared, no estan en la DB.
 - Commits: estilo conventional, en ingles, breves, sin coautor. Push por cada paso.
