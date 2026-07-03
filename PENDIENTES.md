@@ -54,9 +54,11 @@ Estado actual del CRUD por recurso:
 
 - Vigencia: HECHO (mesInicio + mesFin). Falta UI opcional de "dar de baja este mes" con
   un boton (hoy se hace editando el campo mesFin en el formulario).
-- Doble conteo en Resumen PENDIENTE: resumen suma cada obligacion como egreso fijo
-  Y cada gasto ligado como gasto variable => cuenta el mismo dinero dos veces cuando el
-  gasto paga la obligacion. Definir vista plan (obligaciones) vs real (gastos).
+- Doble conteo en Resumen: RESUELTO. El Resumen ya NO suma obligaciones. La obligacion
+  es una "mascara": solo cuenta dinero real (ingresos + gastos). Cada gasto se clasifica
+  por la obligacion que paga: ligado a obl. gasto -> gasto fijo; ligado a obl. inversion
+  -> inversion; sin ligar -> gasto variable. Ademas muestra "Pendiente por pagar" =
+  obligaciones vigentes del mes sin gasto ligado (separadas gasto/inversion).
 
 ## Mejoras menores
 
