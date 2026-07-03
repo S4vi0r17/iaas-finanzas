@@ -10,6 +10,9 @@ import { expenses, incomes, obligations, paymentMethods } from "../db/schema";
  * Con `wipeMovements` también elimina gastos e ingresos del usuario.
  */
 export function seedUserData(userId: string, opts: { wipeMovements?: boolean } = {}) {
+  const now = new Date();
+  const mesInicio = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
   // Limpiar catálogo previo
   db.delete(obligations).where(eq(obligations.userId, userId)).run();
   db.delete(paymentMethods).where(eq(paymentMethods.userId, userId)).run();
@@ -45,6 +48,8 @@ export function seedUserData(userId: string, opts: { wipeMovements?: boolean } =
         userId,
         nombre: o.nombre,
         dia: o.dia,
+        mesInicio,
+        mesFin: null,
         monto: o.monto,
         cat: o.cat,
         catCustom: o.catCustom,

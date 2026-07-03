@@ -30,7 +30,12 @@ Fase 1 (nucleo) completa:
 ## CRUD por completar
 
 Estado actual del CRUD por recurso:
-- Obligaciones: completo (crear, editar, borrar, marcar pagada, reordenar en backend).
+- Obligaciones: crear, editar, borrar, reordenar (backend). "Pagada" ya no es un toggle:
+  se deriva de tener >=1 gasto ligado (expenses.obligation_id) en el mes. Vencimiento =
+  campo `dia` (1-31) recurrente; la fecha del mes se calcula (ver app/src/lib/obligationStatus.ts).
+  Vigencia: cada obligacion tiene mesInicio y mesFin (opcional); el GET ?month filtra a
+  las vigentes ese mes. "Dar de baja" = poner mesFin (conserva historia); borrar = quitar
+  de todos los meses.
 - Usuario: completo (ver, editar).
 - Gastos: faltan editar (falta PATCH /api/expenses/:id y su UI). Hoy: crear, listar, borrar.
 - Ingresos: faltan editar (falta PATCH /api/incomes/:id y su UI). Hoy: crear, listar, borrar.
@@ -45,9 +50,16 @@ Estado actual del CRUD por recurso:
   Pendiente opcional: sembrar unos pocos medios por defecto al registrarse (hoy solo
   los crea /api/seed) para que la cuenta nueva no arranque totalmente vacia.
 
+## Modelo de obligaciones (decisiones de diseno)
+
+- Vigencia: HECHO (mesInicio + mesFin). Falta UI opcional de "dar de baja este mes" con
+  un boton (hoy se hace editando el campo mesFin en el formulario).
+- Doble conteo en Resumen PENDIENTE: resumen suma cada obligacion como egreso fijo
+  Y cada gasto ligado como gasto variable => cuenta el mismo dinero dos veces cuando el
+  gasto paga la obligacion. Definir vista plan (obligaciones) vs real (gastos).
+
 ## Mejoras menores
 
-- Selector de fecha nativo (@react-native-community/datetimepicker). Hoy la fecha se ingresa como texto AAAA-MM-DD.
 - Reordenar obligaciones (backend ya soporta PATCH /obligations/reorder; falta UI con flechas).
 - Icono, splash y nombre visible de la app (branding IAAS).
 - Pantalla de carga/errores mas pulida.

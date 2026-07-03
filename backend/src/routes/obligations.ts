@@ -4,7 +4,7 @@ import {
   reorderObligationsInput,
   type Obligation,
 } from "@iaas/shared";
-import { and, asc, eq, isNotNull, like, max } from "drizzle-orm";
+import { and, asc, eq, gte, isNotNull, isNull, like, lte, max, or } from "drizzle-orm";
 import { Hono } from "hono";
 import { randomUUID } from "node:crypto";
 import { db } from "../db/client";
@@ -17,6 +17,8 @@ function toObligation(row: typeof obligations.$inferSelect): Obligation {
     id: row.id,
     nombre: row.nombre,
     dia: row.dia,
+    mesInicio: row.mesInicio,
+    mesFin: row.mesFin,
     monto: row.monto,
     cat: row.cat,
     catCustom: row.catCustom,
@@ -32,15 +34,23 @@ export const obligationRoutes = new Hono<AuthEnv>();
 /** Lista obligaciones; con ?month=YYYY-MM incluye los IDs pagados ese mes. */
 obligationRoutes.get("/", (c) => {
   const userId = c.get("userId");
+  const month = c.req.query("month");
+
+  // Con ?month, solo las vigentes ese mes: mesInicio <= month <= mesFin (o sin fin).
+  const vigencia = month
+    ? and(
+        lte(obligations.mesInicio, month),
+        or(isNull(obligations.mesFin), gte(obligations.mesFin, month)),
+      )
+    : undefined;
   const rows = db
     .select()
     .from(obligations)
-    .where(eq(obligations.userId, userId))
+    .where(and(eq(obligations.userId, userId), vigencia))
     .orderBy(asc(obligations.sortOrder))
     .all();
 
   // Una obligación está "pagada" en el mes si tiene ≥1 gasto ligado ese mes.
-  const month = c.req.query("month");
   let paidIds: string[] = [];
   if (month) {
     const linked = db

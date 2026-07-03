@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "ef9cfa71-1cdc-4f6b-b54a-8a2887bb86bb",
+  "id": "8e5b1b5b-9dd5-44e5-b1d0-1b6673c8bfe0",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "expenses": {
@@ -259,6 +259,20 @@
           "notNull": true,
           "autoincrement": false,
           "default": 1
+        },
+        "mes_inicio": {
+          "name": "mes_inicio",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "mes_fin": {
+          "name": "mes_fin",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         },
         "monto": {
           "name": "monto",

@@ -208,6 +208,7 @@ function ObligationCard({
         </Text>
         <View className="mt-1 flex-row flex-wrap items-center gap-1">
           {dateLabel ? <Pill text={dateLabel} /> : null}
+          {o.mesFin ? <Pill text={`Hasta ${o.mesFin}`} /> : null}
           {o.tipo === 'inversion' ? <Pill text="Inv." tone="purple" /> : null}
           {showCurrency ? <Pill text={o.moneda} tone="blue" /> : null}
           {pmLabel ? <Pill text={pmLabel} tone="green" /> : null}

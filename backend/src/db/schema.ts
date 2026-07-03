@@ -42,6 +42,8 @@ export const obligations = sqliteTable(
       .references(() => users.id, { onDelete: "cascade" }),
     nombre: text("nombre").notNull(),
     dia: integer("dia").notNull().default(1), // día de vencimiento (1-31), recurrente cada mes
+    mesInicio: text("mes_inicio").notNull(), // YYYY-MM: desde qué mes aplica
+    mesFin: text("mes_fin"), // YYYY-MM o null: último mes en que aplica (null = vigente)
     monto: real("monto").notNull().default(0),
     cat: text("cat").notNull().default("Otro"),
     catCustom: text("cat_custom").notNull().default(""),

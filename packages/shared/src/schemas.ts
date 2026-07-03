@@ -26,6 +26,15 @@ const optionalRef = z
   .nullish()
   .transform((v) => (v && v.trim() ? v.trim() : null));
 
+const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+/** Mes opcional (vigencia). "" o ausente → null; si viene, debe ser YYYY-MM. */
+const optionalMonth = z
+  .string()
+  .nullish()
+  .transform((v) => (v && v.trim() ? v.trim() : null))
+  .refine((v) => v === null || MONTH_RE.test(v), "Formato de mes inválido (YYYY-MM)");
+
 // ─── Auth ─────────────────────────────────────────────────────────────
 export const registerInput = z.object({
   email: z.string().trim().toLowerCase().email("Email inválido"),
@@ -84,9 +93,11 @@ export const updatePaymentMethodInput = z
   .partial();
 
 // ─── Obligaciones ─────────────────────────────────────────────────────
-export const obligationInput = z.object({
+const obligationBase = z.object({
   nombre: shortText.min(1, "Descripción requerida"),
   dia: z.number().int().min(1).max(31), // día de vencimiento, recurrente cada mes
+  mesInicio: monthKey, // desde qué mes aplica (YYYY-MM)
+  mesFin: optionalMonth, // último mes en que aplica, o null = vigente
   monto: money,
   cat: shortText.default("Otro"),
   catCustom: shortText.default(""),
@@ -95,7 +106,13 @@ export const obligationInput = z.object({
   paymentMethodId: optionalRef,
 });
 
-export const obligation = obligationInput.extend({
+/** Validación de entrada: el mes de fin no puede ser anterior al de inicio. */
+export const obligationInput = obligationBase.refine(
+  (o) => !o.mesFin || o.mesFin >= o.mesInicio,
+  { message: "El mes de fin no puede ser anterior al de inicio", path: ["mesFin"] },
+);
+
+export const obligation = obligationBase.extend({
   id: z.string(),
   sortOrder: z.number().int(),
 });

@@ -18,6 +18,12 @@ import { useAuth } from '@/lib/auth';
 const CURRENCY_OPTIONS: Option[] = CURRENCIES.map((c) => ({ value: c.c, label: `${c.s} ${c.c}` }));
 const CATEGORY_OPTIONS: Option[] = OBLIGATION_CATEGORIES.map((c) => ({ value: c, label: c }));
 
+const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+function currentMonth() {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`;
+}
+
 type Props = {
   visible: boolean;
   onClose: () => void;
@@ -32,6 +38,8 @@ export function ObligationForm({ visible, onClose, editing }: Props) {
   const [tipo, setTipo] = useState<'gasto' | 'inversion'>('gasto');
   const [nombre, setNombre] = useState('');
   const [dia, setDia] = useState(String(new Date().getDate()));
+  const [mesInicio, setMesInicio] = useState(currentMonth());
+  const [mesFin, setMesFin] = useState('');
   const [monto, setMonto] = useState('');
   const [moneda, setMoneda] = useState(user?.currency ?? 'PEN');
   const [paymentMethodId, setPaymentMethodId] = useState('');
@@ -44,6 +52,8 @@ export function ObligationForm({ visible, onClose, editing }: Props) {
       setTipo(editing.tipo);
       setNombre(editing.nombre);
       setDia(String(editing.dia));
+      setMesInicio(editing.mesInicio);
+      setMesFin(editing.mesFin ?? '');
       setMonto(String(editing.monto));
       setMoneda(editing.moneda);
       setPaymentMethodId(editing.paymentMethodId ?? '');
@@ -53,6 +63,8 @@ export function ObligationForm({ visible, onClose, editing }: Props) {
       setTipo('gasto');
       setNombre('');
       setDia(String(new Date().getDate()));
+      setMesInicio(currentMonth());
+      setMesFin('');
       setMonto('');
       setMoneda(user?.currency ?? 'PEN');
       setPaymentMethodId('');
@@ -73,10 +85,18 @@ export function ObligationForm({ visible, onClose, editing }: Props) {
     const diaNum = Number(dia);
     if (!Number.isInteger(diaNum) || diaNum < 1 || diaNum > 31)
       return Alert.alert('Día inválido', 'Ingresa un día del mes entre 1 y 31');
+    if (!MONTH_RE.test(mesInicio))
+      return Alert.alert('Mes de inicio inválido', 'Usa el formato AAAA-MM');
+    if (mesFin && !MONTH_RE.test(mesFin))
+      return Alert.alert('Mes de fin inválido', 'Usa el formato AAAA-MM o déjalo vacío');
+    if (mesFin && mesFin < mesInicio)
+      return Alert.alert('Vigencia inválida', 'El mes de fin no puede ser anterior al de inicio');
 
     const data: ObligationInput = {
       nombre: nombre.trim(),
       dia: diaNum,
+      mesInicio,
+      mesFin: mesFin || null,
       monto: parseFloat(monto) || 0,
       cat,
       catCustom: catCustom.trim(),
@@ -132,6 +152,26 @@ export function ObligationForm({ visible, onClose, editing }: Props) {
         keyboardType="number-pad"
         hint="Se repite cada mes (ej. 5 = vence el día 5)"
       />
+
+      <View className="flex-row gap-3">
+        <View className="flex-1">
+          <Field
+            label="Vigente desde *"
+            value={mesInicio}
+            onChangeText={setMesInicio}
+            placeholder="AAAA-MM"
+          />
+        </View>
+        <View className="flex-1">
+          <Field
+            label="Hasta (opcional)"
+            value={mesFin}
+            onChangeText={setMesFin}
+            placeholder="Vigente"
+            hint="Vacío = sigue vigente"
+          />
+        </View>
+      </View>
 
       <View className="flex-row gap-3">
         <View className="flex-[2]">

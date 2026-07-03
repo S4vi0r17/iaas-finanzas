@@ -33,6 +33,8 @@ CREATE TABLE `obligations` (
 	`user_id` text NOT NULL,
 	`nombre` text NOT NULL,
 	`dia` integer DEFAULT 1 NOT NULL,
+	`mes_inicio` text NOT NULL,
+	`mes_fin` text,
 	`monto` real DEFAULT 0 NOT NULL,
 	`cat` text DEFAULT 'Otro' NOT NULL,
 	`cat_custom` text DEFAULT '' NOT NULL,
