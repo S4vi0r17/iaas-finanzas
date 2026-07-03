@@ -1,56 +1,47 @@
-# Welcome to your Expo app 👋
+# IAAS Finanzas — App (Expo)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+App móvil de finanzas personales. Cliente Expo SDK 55 (React Native) que consume el backend
+del monorepo. Ver el [README raíz](../README.md) para el panorama completo.
 
-## Get started
+## Stack
 
-1. Install dependencies
+- Expo SDK 55 + Expo Router (file-based routing en `src/app`)
+- NativeWind (Tailwind para RN)
+- TanStack Query para data fetching/cache
+- Tipos y validación compartidos desde `@iaas/shared`
 
-   ```bash
-   npm install
-   ```
+## Correr en local
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+Desde la raíz del monorepo (usa Bun, no npm):
 
 ```bash
-npm run reset-project
+bun install            # una sola vez, en la raíz
+bun run dev:backend    # levanta el backend (ver README raíz)
+bun run dev:app        # = cd app && bunx expo start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Configura la URL del backend en `app/.env`:
 
-### Other setup steps
+```
+EXPO_PUBLIC_API_URL=http://TU_IP_LAN:3000
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+- En dispositivo físico usá la **IP LAN** de tu PC, no `localhost`.
+- Tras cambiar el `.env`, reiniciá con cache limpio: `bunx expo start -c`.
 
-## Learn more
+## Estructura
 
-To learn more about developing your project with Expo, look at the following resources:
+```
+src/
+  app/            # rutas (Expo Router): login, (tabs)/index|gastos|ingresos|resumen
+  components/     # formularios (Obligation/Expense/Income), SettingsSheet, ui/
+  hooks/          # queries (TanStack), useMonth
+  lib/            # api, auth, config, format, obligationStatus
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Notas
 
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- Los estados de una obligación (Pagado / Retrasado / Vence hoy / Próximo / Pendiente)
+  se calculan en `src/lib/obligationStatus.ts`: solo "Pagado" viene del backend (derivado
+  de tener un gasto ligado ese mes); los demás se derivan del `dia` de vencimiento.
+- Antes de escribir código nuevo, leer `AGENTS.md` (docs versionadas de Expo v55).

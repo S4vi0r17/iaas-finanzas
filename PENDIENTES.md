@@ -4,11 +4,21 @@ Estado y tareas para continuar el desarrollo.
 
 ## Estado actual
 
-Fase 1 (nucleo) completa:
-- Backend Bun + Hono + Drizzle + SQLite, con JWT, CRUD y seed por usuario. Probado (30/30 e2e) y dockerizado.
+Fase 1 (nucleo) completa, con el modelo de datos ya mejorado por encima del HTML de referencia:
+- Backend Bun + Hono + Drizzle + SQLite, con JWT, CRUD y seed por usuario. Dockerizado.
 - App Expo SDK 55 + NativeWind + TanStack Query.
 - 4 pantallas conectadas al backend: Obligaciones, Gastos, Ingresos, Resumen.
-- Multi-moneda, medios de pago, navegacion por mes, ajustes, login con sesion persistida.
+- Multi-moneda, medios de pago (CRUD individual), navegacion por mes, ajustes, login persistido.
+
+Mejoras de modelo ya aplicadas (detalle en las secciones de abajo):
+- Medios de pago: lista libre por usuario (ya no 14 slots fijos).
+- FK reales con ON DELETE SET NULL (payment_method_id, obligation_id).
+- Obligaciones: vencimiento por `dia` recurrente + vigencia (mesInicio / mesFin opcional).
+- "Pagada" derivada de gastos ligados (sin toggle manual ni tabla obligation_status).
+- Resumen sin doble conteo: la obligacion es una "mascara"; solo cuenta dinero real.
+
+Estado de pruebas: `bun run typecheck` pasa en shared/backend/app. Los flujos se verificaron
+con scripts e2e ad-hoc contra el backend. NO hay suite de tests versionada ni CI (ver Gaps).
 
 ## Pendientes por fase
 
@@ -63,8 +73,20 @@ Estado actual del CRUD por recurso:
 ## Mejoras menores
 
 - Reordenar obligaciones (backend ya soporta PATCH /obligations/reorder; falta UI con flechas).
+- Boton "dar de baja este mes" en la obligacion (hoy se edita el campo mesFin a mano).
+- Editar gastos e ingresos (falta PATCH /api/expenses/:id y /api/incomes/:id + UI).
 - Icono, splash y nombre visible de la app (branding IAAS).
 - Pantalla de carga/errores mas pulida.
+- Export muerto: `formatDate` en app/src/lib/format.ts ya no se usa (se puede borrar).
+
+## Gaps de calidad
+
+- No hay suite de tests versionada. Los flujos se probaron con scripts e2e ad-hoc; conviene
+  dejar tests reales (ej. bun test) para obligaciones, gastos, vigencia y calculo del resumen.
+- No hay CI (.github/workflows). Falta un workflow que corra `bun run typecheck` (+ tests) por push.
+- Metric "Total/N" en la pantalla de Obligaciones: la lista se filtra por vigencia del mes,
+  asi que ese conteo es por-mes, pero el limite gratis (MAX_FREE_OBLIGATIONS) es global. Revisar
+  si el numero mostrado deberia ser el total global o el del mes.
 
 ## Endpoint de seed (desarrollo)
 
