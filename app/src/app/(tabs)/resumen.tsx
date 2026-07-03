@@ -11,8 +11,17 @@ import { fmt } from '@/lib/format';
 
 const barWidth = (pct: number): DimensionValue => `${Math.max(0, Math.min(100, Math.round(pct)))}%`;
 
-type Bucket = { ing: number; gfG: number; gfI: number; gV: number };
+type Bucket = {
+  ing: number; // ingresos
+  gFijo: number; // gastos ligados a una obligación tipo "gasto"
+  gVar: number; // gastos sin obligación ligada
+  inv: number; // gastos ligados a una obligación tipo "inversión"
+  pendGasto: number; // obligaciones "gasto" vigentes sin pagar
+  pendInv: number; // obligaciones "inversión" vigentes sin pagar
+};
 type PmStat = { name: string; icon: string; total: number; count: number; cats: Record<string, number> };
+
+const emptyBucket = (): Bucket => ({ ing: 0, gFijo: 0, gVar: 0, inv: 0, pendGasto: 0, pendInv: 0 });
 
 export default function ResumenScreen() {
   const { user } = useAuth();
@@ -35,51 +44,64 @@ export default function ResumenScreen() {
     return pm ? PM_ICONS[pm.type] : '❓';
   }
 
+  const paidIds = oblData?.paidIds ?? [];
+
   const model = useMemo(() => {
-    // Agregación por moneda
+    const oblById = new Map(obligations.map((o) => [o.id, o]));
     const byC: Record<string, Bucket> = {};
-    const add = (cur: string, key: keyof Bucket, amt: number) => {
-      if (!byC[cur]) byC[cur] = { ing: 0, gfG: 0, gfI: 0, gV: 0 };
-      byC[cur][key] += amt;
-    };
-    incomes.forEach((i) => add(i.moneda, 'ing', i.monto));
-    obligations.forEach((o) => add(o.moneda, o.tipo === 'inversion' ? 'gfI' : 'gfG', o.monto));
-    expenses.forEach((g) => add(g.moneda, 'gV', g.monto));
+    const bucket = (cur: string) => (byC[cur] ??= emptyBucket());
 
-    const b = byC[base] ?? { ing: 0, gfG: 0, gfI: 0, gV: 0 };
+    incomes.forEach((i) => (bucket(i.moneda).ing += i.monto));
+
+    // Cada gasto se clasifica por la obligación que paga (la obligación es una
+    // máscara; el dinero real es el gasto). Sin ligar → variable.
+    expenses.forEach((g) => {
+      const b = bucket(g.moneda);
+      const obl = g.obligationId ? oblById.get(g.obligationId) : undefined;
+      if (obl?.tipo === 'inversion') b.inv += g.monto;
+      else if (g.obligationId) b.gFijo += g.monto;
+      else b.gVar += g.monto;
+    });
+
+    // Pendiente por pagar: obligaciones vigentes del mes sin gasto ligado.
+    obligations.forEach((o) => {
+      if (paidIds.includes(o.id)) return;
+      const b = bucket(o.moneda);
+      if (o.tipo === 'inversion') b.pendInv += o.monto;
+      else b.pendGasto += o.monto;
+    });
+
+    const b = byC[base] ?? emptyBucket();
     const ingT = b.ing;
-    const totE = b.gfG + b.gV;
-    const totI = b.gfI;
-    const disp = ingT - totE;
-    const ahorro = ingT - totE - totI;
-    const pct = ingT > 0 ? Math.min(((totE + totI) / ingT) * 100, 100) : 0;
+    const egresos = b.gFijo + b.gVar;
+    const inv = b.inv;
+    const disp = ingT - egresos;
+    const ahorro = disp - inv;
+    const pendTotal = b.pendGasto + b.pendInv;
+    const pct = ingT > 0 ? Math.min(((egresos + inv) / ingT) * 100, 100) : 0;
 
-    // Orden de monedas (base primero)
     const currencies = Object.keys(byC).sort((a, x) => (a === base ? -1 : x === base ? 1 : 0));
 
-    // Uso por medio de pago (solo moneda base)
+    // Uso por medio de pago: solo gastos reales (moneda base).
     const pmStats: Record<string, PmStat> = {};
-    const addPm = (id: string | null, amt: number, cat: string) => {
-      const k = id || 'xx';
-      if (!pmStats[k]) {
-        pmStats[k] = {
-          name: id ? pmName(id) : 'Sin asignar',
-          icon: id ? pmIcon(id) : '❓',
-          total: 0,
-          count: 0,
-          cats: {},
-        };
-      }
-      pmStats[k].total += amt;
-      pmStats[k].count++;
-      pmStats[k].cats[cat] = (pmStats[k].cats[cat] || 0) + amt;
-    };
-    obligations
-      .filter((o) => o.moneda === base)
-      .forEach((o) => addPm(o.paymentMethodId, o.monto, o.catCustom?.trim() || o.cat || 'Otro'));
     expenses
       .filter((g) => g.moneda === base)
-      .forEach((g) => addPm(g.paymentMethodId, g.monto, g.catCustom?.trim() || g.cat || 'Otro'));
+      .forEach((g) => {
+        const k = g.paymentMethodId || 'xx';
+        if (!pmStats[k]) {
+          pmStats[k] = {
+            name: g.paymentMethodId ? pmName(g.paymentMethodId) : 'Sin asignar',
+            icon: g.paymentMethodId ? pmIcon(g.paymentMethodId) : '❓',
+            total: 0,
+            count: 0,
+            cats: {},
+          };
+        }
+        const cat = g.catCustom?.trim() || g.cat || 'Otro';
+        pmStats[k].total += g.monto;
+        pmStats[k].count++;
+        pmStats[k].cats[cat] = (pmStats[k].cats[cat] || 0) + g.monto;
+      });
     const pmList = Object.values(pmStats).sort((a, x) => x.total - a.total);
     const pmMax = pmList.length ? pmList[0].total : 1;
 
@@ -92,24 +114,31 @@ export default function ResumenScreen() {
         incByCat[c] = (incByCat[c] || 0) + i.monto;
       });
 
-    const invList = obligations.filter((o) => o.tipo === 'inversion' && o.moneda === base);
+    // Inversiones reales: gastos base ligados a una obligación de inversión.
+    const invItems = expenses.filter(
+      (g) => g.moneda === base && oblById.get(g.obligationId ?? '')?.tipo === 'inversion',
+    );
+    // Pendientes: obligaciones base vigentes sin pagar.
+    const pendItems = obligations.filter((o) => o.moneda === base && !paidIds.includes(o.id));
 
     return {
       byC,
       currencies,
       ingT,
-      totE,
-      totI,
+      egresos,
+      inv,
       disp,
       ahorro,
+      pendTotal,
       pct,
       base_: b,
       pmList,
       pmMax,
       incByCat,
-      invList,
+      invItems,
+      pendItems,
     };
-  }, [obligations, expenses, incomes, base]);
+  }, [obligations, expenses, incomes, paidIds, base]);
 
   return (
     <SafeAreaView className="flex-1 bg-slate-100 dark:bg-slate-900" edges={['top']}>
@@ -122,19 +151,19 @@ export default function ResumenScreen() {
             {model.currencies.map((cur) => {
               const d = model.byC[cur];
               const sym = currencySymbol(cur);
-              const totEC = d.gfG + d.gV;
-              const dispC = d.ing - totEC;
-              const ahorC = d.ing - totEC - d.gfI;
+              const egr = d.gFijo + d.gVar;
+              const dispC = d.ing - egr;
+              const ahorC = dispC - d.inv;
               return (
                 <Card key={cur} accent="#2563eb">
                   <Text className="mb-2 text-xs font-bold uppercase text-slate-400">
                     {cur} · {sym}
                   </Text>
                   <Row l="Ingresos" v={`${sym} ${d.ing.toFixed(2)}`} c="#16a34a" />
-                  <Row l="Egresos fijos" v={`- ${sym} ${d.gfG.toFixed(2)}`} c="#dc2626" />
-                  <Row l="Gastos variables" v={`- ${sym} ${d.gV.toFixed(2)}`} c="#dc2626" />
+                  <Row l="Gastos fijos" v={`- ${sym} ${d.gFijo.toFixed(2)}`} c="#dc2626" />
+                  <Row l="Gastos variables" v={`- ${sym} ${d.gVar.toFixed(2)}`} c="#dc2626" />
                   <Row l="Disponible" v={`${sym} ${dispC.toFixed(2)}`} c={dispC >= 0 ? '#16a34a' : '#dc2626'} bold />
-                  <Row l="Inversiones" v={`- ${sym} ${d.gfI.toFixed(2)}`} c="#7c3aed" />
+                  <Row l="Inversiones" v={`- ${sym} ${d.inv.toFixed(2)}`} c="#7c3aed" />
                   <Row l="Ahorro libre" v={`${sym} ${ahorC.toFixed(2)}`} c={ahorC >= 0 ? '#16a34a' : '#dc2626'} bold />
                 </Card>
               );
@@ -194,19 +223,38 @@ export default function ResumenScreen() {
         </Card>
 
         <Card>
-          <CardHeader title="Egresos" total={fmt(model.totE, base)} totalColor="#dc2626" />
-          <Row l="Gastos fijos" v={fmt(model.base_.gfG, base)} c="#dc2626" />
-          <Row l="Gastos variables" v={fmt(model.base_.gV, base)} c="#dc2626" />
+          <CardHeader title="Egresos" total={fmt(model.egresos, base)} totalColor="#dc2626" />
+          <Row l="Gastos fijos" v={fmt(model.base_.gFijo, base)} c="#dc2626" />
+          <Row l="Gastos variables" v={fmt(model.base_.gVar, base)} c="#dc2626" />
         </Card>
 
         <Card>
-          <CardHeader title="Inversiones" total={fmt(model.totI, base)} totalColor="#7c3aed" />
-          {model.invList.length ? (
-            model.invList.map((o) => <Row key={o.id} l={o.nombre} v={fmt(o.monto, base)} c="#7c3aed" />)
+          <CardHeader title="Inversiones" total={fmt(model.inv, base)} totalColor="#7c3aed" />
+          {model.invItems.length ? (
+            model.invItems.map((g) => (
+              <Row key={g.id} l={g.descripcion} v={fmt(g.monto, base)} c="#7c3aed" />
+            ))
           ) : (
-            <Text className="text-sm text-slate-400">Marca obligaciones como Inversión</Text>
+            <Text className="text-sm text-slate-400">Aún no registras inversiones este mes</Text>
           )}
         </Card>
+
+        {model.pendItems.length > 0 && (
+          <Card accent="#f59e0b">
+            <CardHeader title="Pendiente por pagar" total={fmt(model.pendTotal, base)} totalColor="#f59e0b" />
+            {model.pendItems.map((o) => (
+              <Row
+                key={o.id}
+                l={`${o.nombre}${o.tipo === 'inversion' ? ' · Inv.' : ''}`}
+                v={fmt(o.monto, base)}
+                c="#f59e0b"
+              />
+            ))}
+            <Text className="mt-1 text-[11px] text-slate-400">
+              Obligaciones vigentes de {label} sin gasto ligado.
+            </Text>
+          </Card>
+        )}
 
         {/* Balance general */}
         <View className="mt-2 rounded-2xl p-4" style={{ backgroundColor: '#1d4ed8' }}>
@@ -214,15 +262,18 @@ export default function ResumenScreen() {
             Balance General · {label}
           </Text>
           <BRow l="Ingresos" v={fmt(model.ingT, base)} />
-          <BRow l="Egresos" v={`- ${fmt(model.totE, base)}`} />
+          <BRow l="Egresos" v={`- ${fmt(model.egresos, base)}`} />
           <BRow l="Disponible" v={fmt(model.disp, base)} strong vColor={model.disp >= 0 ? '#fff' : '#fca5a5'} />
-          <BRow l="Inversiones" v={`- ${fmt(model.totI, base)}`} />
+          <BRow l="Inversiones" v={`- ${fmt(model.inv, base)}`} />
           <BRow l="Ahorro libre" v={fmt(model.ahorro, base)} strong vColor={model.ahorro >= 0 ? '#86efac' : '#fca5a5'} />
+          {model.pendTotal > 0 && (
+            <BRow l="Pendiente por pagar" v={fmt(model.pendTotal, base)} vColor="#fcd34d" />
+          )}
           <View className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/25">
             <View className="h-1.5 rounded-full bg-white/90" style={{ width: barWidth(model.pct) }} />
           </View>
           <Text className="mt-1 text-[11px] text-white/60">
-            {model.pct.toFixed(0)}% del ingreso comprometido
+            {model.pct.toFixed(0)}% del ingreso gastado/invertido
           </Text>
         </View>
 
