@@ -17,6 +17,7 @@ export default function IngresosScreen() {
   const { data, isLoading } = useIncomes(monthKey);
   const del = useDeleteIncome();
   const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<Income | null>(null);
 
   const baseCurrency = user?.currency ?? 'PEN';
   const incomes = data?.incomes ?? [];
@@ -51,7 +52,10 @@ export default function IngresosScreen() {
             <Metrics items={metrics} />
             <View className="px-4 pb-2">
               <Pressable
-                onPress={() => setFormOpen(true)}
+                onPress={() => {
+                  setEditing(null);
+                  setFormOpen(true);
+                }}
                 className="items-center rounded-xl bg-[#16a34a] py-3 active:opacity-80"
               >
                 <Text className="font-semibold text-white">+ Registrar ingreso</Text>
@@ -62,7 +66,16 @@ export default function IngresosScreen() {
             </Text>
           </View>
         }
-        renderItem={({ item }) => <ItemRow item={item} onDelete={() => confirmDelete(item.id)} />}
+        renderItem={({ item }) => (
+          <ItemRow
+            item={item}
+            onEdit={() => {
+              setEditing(item);
+              setFormOpen(true);
+            }}
+            onDelete={() => confirmDelete(item.id)}
+          />
+        )}
         ListEmptyComponent={
           isLoading ? (
             <ActivityIndicator className="mt-10" color="#16a34a" />
@@ -72,27 +85,30 @@ export default function IngresosScreen() {
         }
       />
 
-      <IncomeForm visible={formOpen} onClose={() => setFormOpen(false)} />
+      <IncomeForm visible={formOpen} onClose={() => setFormOpen(false)} editing={editing} />
     </SafeAreaView>
   );
 }
 
-function ItemRow({ item, onDelete }: { item: Income; onDelete: () => void }) {
+function ItemRow({ item, onEdit, onDelete }: { item: Income; onEdit: () => void; onDelete: () => void }) {
   const cat = item.catCustom?.trim() ? item.catCustom.trim() : item.cat;
   return (
     <View
       className="mx-4 mb-1.5 flex-row items-center gap-3 rounded-xl bg-white p-3 dark:bg-slate-800"
       style={{ borderLeftWidth: 3, borderLeftColor: '#16a34a' }}
     >
-      <View className="flex-1">
+      <Pressable onPress={onEdit} className="flex-1">
         <Text className="font-semibold text-slate-800 dark:text-slate-100" numberOfLines={1}>
           {item.descripcion}
         </Text>
         <Text className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
           {cat} · {item.fecha}
         </Text>
-      </View>
+      </Pressable>
       <Text className="font-bold text-[#16a34a]">+{fmt(item.monto, item.moneda)}</Text>
+      <Pressable onPress={onEdit} className="px-1">
+        <Text className="text-slate-400">✎</Text>
+      </Pressable>
       <Pressable onPress={onDelete} className="px-1">
         <Text className="text-slate-400">✕</Text>
       </Pressable>

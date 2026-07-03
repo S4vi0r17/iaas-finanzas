@@ -1,11 +1,11 @@
-import { CURRENCIES, EXPENSE_CATEGORIES, PM_ICONS, type ExpenseInput } from '@iaas/shared';
+import { CURRENCIES, EXPENSE_CATEGORIES, PM_ICONS, type Expense, type ExpenseInput } from '@iaas/shared';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Field } from '@/components/ui/Field';
 import { Picker, type Option } from '@/components/ui/Picker';
-import { useCreateExpense, useObligations, usePaymentMethods } from '@/hooks/queries';
+import { useCreateExpense, useObligations, usePaymentMethods, useUpdateExpense } from '@/hooks/queries';
 import { useMonth } from '@/hooks/useMonth';
 import { useAuth } from '@/lib/auth';
 import { today } from '@/lib/format';
@@ -13,12 +13,15 @@ import { today } from '@/lib/format';
 const CURRENCY_OPTIONS: Option[] = CURRENCIES.map((c) => ({ value: c.c, label: `${c.s} ${c.c}` }));
 const CATEGORY_OPTIONS: Option[] = EXPENSE_CATEGORIES.map((c) => ({ value: c, label: c }));
 
-export function ExpenseForm({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+type Props = { visible: boolean; onClose: () => void; editing?: Expense | null };
+
+export function ExpenseForm({ visible, onClose, editing }: Props) {
   const { user } = useAuth();
   const { monthKey } = useMonth();
   const { data: pmData } = usePaymentMethods();
   const { data: oblData } = useObligations(monthKey);
   const create = useCreateExpense();
+  const update = useUpdateExpense();
 
   const [descripcion, setDescripcion] = useState('');
   const [monto, setMonto] = useState('');
@@ -30,7 +33,17 @@ export function ExpenseForm({ visible, onClose }: { visible: boolean; onClose: (
   const [fecha, setFecha] = useState(today());
 
   useEffect(() => {
-    if (visible) {
+    if (!visible) return;
+    if (editing) {
+      setDescripcion(editing.descripcion);
+      setMonto(String(editing.monto));
+      setMoneda(editing.moneda);
+      setCat(editing.cat || 'Alimentacion');
+      setCatCustom(editing.catCustom);
+      setPaymentMethodId(editing.paymentMethodId ?? '');
+      setObligationId(editing.obligationId ?? '');
+      setFecha(editing.fecha);
+    } else {
       setDescripcion('');
       setMonto('');
       setMoneda(user?.currency ?? 'PEN');
@@ -40,7 +53,7 @@ export function ExpenseForm({ visible, onClose }: { visible: boolean; onClose: (
       setObligationId('');
       setFecha(today());
     }
-  }, [visible, user?.currency]);
+  }, [visible, editing, user?.currency]);
 
   const pmOptions: Option[] = [
     { value: '', label: 'Sin asignar' },
@@ -70,15 +83,18 @@ export function ExpenseForm({ visible, onClose }: { visible: boolean; onClose: (
       moneda,
     };
     try {
-      await create.mutateAsync(data);
+      if (editing) await update.mutateAsync({ id: editing.id, data });
+      else await create.mutateAsync(data);
       onClose();
     } catch (e: any) {
       Alert.alert('Error', e?.message ?? 'No se pudo guardar');
     }
   }
 
+  const busy = create.isPending || update.isPending;
+
   return (
-    <BottomSheet visible={visible} onClose={onClose} title="Nuevo gasto">
+    <BottomSheet visible={visible} onClose={onClose} title={editing ? 'Editar gasto' : 'Nuevo gasto'}>
       <Field
         label="Descripción *"
         value={descripcion}
@@ -119,12 +135,10 @@ export function ExpenseForm({ visible, onClose }: { visible: boolean; onClose: (
         </Pressable>
         <Pressable
           onPress={onSave}
-          disabled={create.isPending}
+          disabled={busy}
           className="flex-1 items-center rounded-xl bg-[#ea580c] py-3 active:opacity-80"
         >
-          <Text className="font-semibold text-white">
-            {create.isPending ? 'Guardando...' : 'Guardar'}
-          </Text>
+          <Text className="font-semibold text-white">{busy ? 'Guardando...' : 'Guardar'}</Text>
         </Pressable>
       </View>
     </BottomSheet>

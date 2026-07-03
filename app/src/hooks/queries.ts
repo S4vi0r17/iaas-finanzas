@@ -75,6 +75,18 @@ export function useCreateExpense() {
   });
 }
 
+export function useUpdateExpense() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: ExpenseInput }) =>
+      apiFetch<{ expense: Expense }>(`/api/expenses/${id}`, { method: 'PATCH', body: data }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['expenses'] });
+      qc.invalidateQueries({ queryKey: ['obligations'] });
+    },
+  });
+}
+
 export function useDeleteExpense() {
   const qc = useQueryClient();
   return useMutation({
@@ -99,6 +111,15 @@ export function useCreateIncome() {
   return useMutation({
     mutationFn: (data: IncomeInput) =>
       apiFetch<{ income: Income }>('/api/incomes', { method: 'POST', body: data }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['incomes'] }),
+  });
+}
+
+export function useUpdateIncome() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: IncomeInput }) =>
+      apiFetch<{ income: Income }>(`/api/incomes/${id}`, { method: 'PATCH', body: data }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['incomes'] }),
   });
 }

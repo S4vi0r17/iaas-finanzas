@@ -47,8 +47,8 @@ Estado actual del CRUD por recurso:
   las vigentes ese mes. "Dar de baja" = poner mesFin (conserva historia); borrar = quitar
   de todos los meses.
 - Usuario: completo (ver, editar).
-- Gastos: faltan editar (falta PATCH /api/expenses/:id y su UI). Hoy: crear, listar, borrar.
-- Ingresos: faltan editar (falta PATCH /api/incomes/:id y su UI). Hoy: crear, listar, borrar.
+- Gastos: completo (crear, listar, editar PATCH, borrar). Tocar la fila abre editar.
+- Ingresos: completo (crear, listar, editar PATCH, borrar). Tocar la fila abre editar.
 - Medios de pago: completo. Lista libre por usuario (no slots fijos). Crear (POST),
   editar nombre/tipo, desactivar (PATCH active:false). UI en Ajustes con "Agregar".
 - Reordenar obligaciones: backend listo (PATCH /obligations/reorder), falta UI con flechas.
@@ -74,7 +74,6 @@ Estado actual del CRUD por recurso:
 
 - Reordenar obligaciones (backend ya soporta PATCH /obligations/reorder; falta UI con flechas).
 - Boton "dar de baja este mes" en la obligacion (hoy se edita el campo mesFin a mano).
-- Editar gastos e ingresos (falta PATCH /api/expenses/:id y /api/incomes/:id + UI).
 - Icono, splash y nombre visible de la app (branding IAAS).
 - Pantalla de carga/errores mas pulida.
 - Export muerto: `formatDate` en app/src/lib/format.ts ya no se usa (se puede borrar).

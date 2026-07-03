@@ -45,6 +45,23 @@ expenseRoutes.post("/", async (c) => {
   return c.json({ expense: toExpense(row) }, 201);
 });
 
+expenseRoutes.patch("/:id", async (c) => {
+  const id = c.req.param("id");
+  const userId = c.get("userId");
+  const data = await parseBody(c, expenseInput);
+
+  const owned = db
+    .select({ id: expenses.id })
+    .from(expenses)
+    .where(and(eq(expenses.id, id), eq(expenses.userId, userId)))
+    .get();
+  if (!owned) return c.json({ error: "No encontrado" }, 404);
+
+  db.update(expenses).set(data).where(and(eq(expenses.id, id), eq(expenses.userId, userId))).run();
+  const row = db.select().from(expenses).where(eq(expenses.id, id)).get()!;
+  return c.json({ expense: toExpense(row) });
+});
+
 expenseRoutes.delete("/:id", (c) => {
   const id = c.req.param("id");
   const userId = c.get("userId");

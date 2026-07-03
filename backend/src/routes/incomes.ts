@@ -43,6 +43,23 @@ incomeRoutes.post("/", async (c) => {
   return c.json({ income: toIncome(row) }, 201);
 });
 
+incomeRoutes.patch("/:id", async (c) => {
+  const id = c.req.param("id");
+  const userId = c.get("userId");
+  const data = await parseBody(c, incomeInput);
+
+  const owned = db
+    .select({ id: incomes.id })
+    .from(incomes)
+    .where(and(eq(incomes.id, id), eq(incomes.userId, userId)))
+    .get();
+  if (!owned) return c.json({ error: "No encontrado" }, 404);
+
+  db.update(incomes).set(data).where(and(eq(incomes.id, id), eq(incomes.userId, userId))).run();
+  const row = db.select().from(incomes).where(eq(incomes.id, id)).get()!;
+  return c.json({ income: toIncome(row) });
+});
+
 incomeRoutes.delete("/:id", (c) => {
   const id = c.req.param("id");
   const userId = c.get("userId");

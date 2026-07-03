@@ -18,6 +18,7 @@ export default function GastosScreen() {
   const { data: pmData } = usePaymentMethods();
   const del = useDeleteExpense();
   const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<Expense | null>(null);
 
   const baseCurrency = user?.currency ?? 'PEN';
   const expenses = data?.expenses ?? [];
@@ -58,7 +59,10 @@ export default function GastosScreen() {
             <Metrics items={metrics} />
             <View className="px-4 pb-2">
               <Pressable
-                onPress={() => setFormOpen(true)}
+                onPress={() => {
+                  setEditing(null);
+                  setFormOpen(true);
+                }}
                 className="items-center rounded-xl bg-[#ea580c] py-3 active:opacity-80"
               >
                 <Text className="font-semibold text-white">+ Registrar gasto</Text>
@@ -70,7 +74,15 @@ export default function GastosScreen() {
           </View>
         }
         renderItem={({ item }) => (
-          <ItemRow item={item} pmLabel={pmLabel(item.paymentMethodId)} onDelete={() => confirmDelete(item.id)} />
+          <ItemRow
+            item={item}
+            pmLabel={pmLabel(item.paymentMethodId)}
+            onEdit={() => {
+              setEditing(item);
+              setFormOpen(true);
+            }}
+            onDelete={() => confirmDelete(item.id)}
+          />
         )}
         ListEmptyComponent={
           isLoading ? (
@@ -81,7 +93,7 @@ export default function GastosScreen() {
         }
       />
 
-      <ExpenseForm visible={formOpen} onClose={() => setFormOpen(false)} />
+      <ExpenseForm visible={formOpen} onClose={() => setFormOpen(false)} editing={editing} />
     </SafeAreaView>
   );
 }
@@ -89,10 +101,12 @@ export default function GastosScreen() {
 function ItemRow({
   item,
   pmLabel,
+  onEdit,
   onDelete,
 }: {
   item: Expense;
   pmLabel: string;
+  onEdit: () => void;
   onDelete: () => void;
 }) {
   const cat = item.catCustom?.trim() ? item.catCustom.trim() : item.cat;
@@ -101,7 +115,7 @@ function ItemRow({
       className="mx-4 mb-1.5 flex-row items-center gap-3 rounded-xl bg-white p-3 dark:bg-slate-800"
       style={{ borderLeftWidth: 3, borderLeftColor: '#ea580c' }}
     >
-      <View className="flex-1">
+      <Pressable onPress={onEdit} className="flex-1">
         <Text className="font-semibold text-slate-800 dark:text-slate-100" numberOfLines={1}>
           {item.descripcion}
         </Text>
@@ -109,8 +123,11 @@ function ItemRow({
           {cat} · {item.fecha}
           {pmLabel ? `  ${pmLabel}` : ''}
         </Text>
-      </View>
+      </Pressable>
       <Text className="font-bold text-slate-800 dark:text-slate-100">{fmt(item.monto, item.moneda)}</Text>
+      <Pressable onPress={onEdit} className="px-1">
+        <Text className="text-slate-400">✎</Text>
+      </Pressable>
       <Pressable onPress={onDelete} className="px-1">
         <Text className="text-slate-400">✕</Text>
       </Pressable>

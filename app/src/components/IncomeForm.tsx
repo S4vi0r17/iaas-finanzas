@@ -1,20 +1,23 @@
-import { CURRENCIES, INCOME_CATEGORIES, type IncomeInput } from '@iaas/shared';
+import { CURRENCIES, INCOME_CATEGORIES, type Income, type IncomeInput } from '@iaas/shared';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Field } from '@/components/ui/Field';
 import { Picker, type Option } from '@/components/ui/Picker';
-import { useCreateIncome } from '@/hooks/queries';
+import { useCreateIncome, useUpdateIncome } from '@/hooks/queries';
 import { useAuth } from '@/lib/auth';
 import { today } from '@/lib/format';
 
 const CURRENCY_OPTIONS: Option[] = CURRENCIES.map((c) => ({ value: c.c, label: `${c.s} ${c.c}` }));
 const CATEGORY_OPTIONS: Option[] = INCOME_CATEGORIES.map((c) => ({ value: c, label: c }));
 
-export function IncomeForm({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+type Props = { visible: boolean; onClose: () => void; editing?: Income | null };
+
+export function IncomeForm({ visible, onClose, editing }: Props) {
   const { user } = useAuth();
   const create = useCreateIncome();
+  const update = useUpdateIncome();
 
   const [descripcion, setDescripcion] = useState('');
   const [monto, setMonto] = useState('');
@@ -24,7 +27,15 @@ export function IncomeForm({ visible, onClose }: { visible: boolean; onClose: ()
   const [fecha, setFecha] = useState(today());
 
   useEffect(() => {
-    if (visible) {
+    if (!visible) return;
+    if (editing) {
+      setDescripcion(editing.descripcion);
+      setMonto(String(editing.monto));
+      setMoneda(editing.moneda);
+      setCat(editing.cat || 'Sueldo');
+      setCatCustom(editing.catCustom);
+      setFecha(editing.fecha);
+    } else {
       setDescripcion('');
       setMonto('');
       setMoneda(user?.currency ?? 'PEN');
@@ -32,7 +43,7 @@ export function IncomeForm({ visible, onClose }: { visible: boolean; onClose: ()
       setCatCustom('');
       setFecha(today());
     }
-  }, [visible, user?.currency]);
+  }, [visible, editing, user?.currency]);
 
   async function onSave() {
     if (!descripcion.trim()) return Alert.alert('Falta la descripción');
@@ -49,15 +60,18 @@ export function IncomeForm({ visible, onClose }: { visible: boolean; onClose: ()
       moneda,
     };
     try {
-      await create.mutateAsync(data);
+      if (editing) await update.mutateAsync({ id: editing.id, data });
+      else await create.mutateAsync(data);
       onClose();
     } catch (e: any) {
       Alert.alert('Error', e?.message ?? 'No se pudo guardar');
     }
   }
 
+  const busy = create.isPending || update.isPending;
+
   return (
-    <BottomSheet visible={visible} onClose={onClose} title="Nuevo ingreso">
+    <BottomSheet visible={visible} onClose={onClose} title={editing ? 'Editar ingreso' : 'Nuevo ingreso'}>
       <Field
         label="Descripción *"
         value={descripcion}
@@ -96,12 +110,10 @@ export function IncomeForm({ visible, onClose }: { visible: boolean; onClose: ()
         </Pressable>
         <Pressable
           onPress={onSave}
-          disabled={create.isPending}
+          disabled={busy}
           className="flex-1 items-center rounded-xl bg-[#16a34a] py-3 active:opacity-80"
         >
-          <Text className="font-semibold text-white">
-            {create.isPending ? 'Guardando...' : 'Guardar'}
-          </Text>
+          <Text className="font-semibold text-white">{busy ? 'Guardando...' : 'Guardar'}</Text>
         </Pressable>
       </View>
     </BottomSheet>
