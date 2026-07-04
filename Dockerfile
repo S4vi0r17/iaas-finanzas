@@ -8,6 +8,7 @@ WORKDIR /app
 COPY package.json bun.lock bunfig.toml ./
 COPY packages/shared/package.json packages/shared/
 COPY backend/package.json backend/
+COPY app/package.json app/
 RUN bun install --frozen-lockfile
 
 # 2) Copiar el código
