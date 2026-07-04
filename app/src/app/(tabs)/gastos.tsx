@@ -21,21 +21,22 @@ export default function GastosScreen() {
   const [editing, setEditing] = useState<Expense | null>(null);
 
   const baseCurrency = user?.currency ?? 'PEN';
-  const expenses = data?.expenses ?? [];
+  // Solo gastos variables. Los pagos de obligación se gestionan desde su pestaña.
+  const expenses = (data?.expenses ?? []).filter((expense) => expense.tipo === 'variable');
 
-  function pmLabel(id: string | null) {
-    const pm = pmData?.paymentMethods.find((p) => p.id === id);
-    return pm ? `${PM_ICONS[pm.type]} ${pm.name}` : '';
+  function paymentMethodLabel(id: string | null) {
+    const paymentMethod = pmData?.paymentMethods.find((method) => method.id === id);
+    return paymentMethod ? `${PM_ICONS[paymentMethod.type]} ${paymentMethod.name}` : '';
   }
 
   const metrics = useMemo<Metric[]>(() => {
-    const base = expenses.filter((g) => g.moneda === baseCurrency);
-    const tot = base.reduce((s, g) => s + g.monto, 0);
-    const days = new Set(base.map((g) => g.fecha)).size;
+    const baseExpenses = expenses.filter((expense) => expense.moneda === baseCurrency);
+    const total = baseExpenses.reduce((sum, expense) => sum + expense.monto, 0);
+    const dayCount = new Set(baseExpenses.map((expense) => expense.fecha)).size;
     return [
-      { value: fmtShort(tot, baseCurrency), label: `Total ${baseCurrency}`, color: '#ea580c' },
+      { value: fmtShort(total, baseCurrency), label: `Total ${baseCurrency}`, color: '#ea580c' },
       { value: String(expenses.length), label: 'Registros' },
-      { value: days > 0 ? fmtShort(tot / days, baseCurrency) : '-', label: 'Prom/día' },
+      { value: dayCount > 0 ? fmtShort(total / dayCount, baseCurrency) : '-', label: 'Prom/día' },
     ];
   }, [expenses, baseCurrency]);
 
@@ -76,7 +77,7 @@ export default function GastosScreen() {
         renderItem={({ item }) => (
           <ItemRow
             item={item}
-            pmLabel={pmLabel(item.paymentMethodId)}
+            pmLabel={paymentMethodLabel(item.paymentMethodId)}
             onEdit={() => {
               setEditing(item);
               setFormOpen(true);

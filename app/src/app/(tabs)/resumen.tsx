@@ -12,159 +12,205 @@ import { fmt } from '@/lib/format';
 const barWidth = (pct: number): DimensionValue => `${Math.max(0, Math.min(100, Math.round(pct)))}%`;
 
 type Bucket = {
-  ing: number; // ingresos
-  gFijo: number; // gastos ligados a una obligación tipo "gasto"
-  gVar: number; // gastos sin obligación ligada
-  inv: number; // gastos ligados a una obligación tipo "inversión"
-  pendGasto: number; // obligaciones "gasto" vigentes sin pagar
-  pendInv: number; // obligaciones "inversión" vigentes sin pagar
+  income: number;
+  fixed: number; // gastos snapshot 'fijo' (pagos de obligación tipo gasto)
+  variable: number; // gastos snapshot 'variable' (gasto suelto)
+  investment: number; // gastos snapshot 'inversion'
+  pendingExpense: number; // saldo de obligaciones gasto sin pagar
+  pendingInvestment: number; // saldo de obligaciones inversión sin pagar
 };
-type PmStat = { name: string; icon: string; total: number; count: number; cats: Record<string, number> };
+type PaymentMethodStat = {
+  name: string;
+  icon: string;
+  total: number;
+  count: number;
+  categories: Record<string, number>;
+};
 
-const emptyBucket = (): Bucket => ({ ing: 0, gFijo: 0, gVar: 0, inv: 0, pendGasto: 0, pendInv: 0 });
+const emptyBucket = (): Bucket => ({
+  income: 0,
+  fixed: 0,
+  variable: 0,
+  investment: 0,
+  pendingExpense: 0,
+  pendingInvestment: 0,
+});
 
 export default function ResumenScreen() {
   const { user } = useAuth();
   const { monthKey, label } = useMonth();
-  const { data: oblData } = useObligations(monthKey);
-  const { data: expData } = useExpenses(monthKey);
-  const { data: incData } = useIncomes(monthKey);
+  const { data: obligationData } = useObligations(monthKey);
+  const { data: expenseData } = useExpenses(monthKey);
+  const { data: incomeData } = useIncomes(monthKey);
   const { data: pmData } = usePaymentMethods();
 
-  const base = user?.currency ?? 'PEN';
-  const obligations = oblData?.obligations ?? [];
-  const expenses = expData?.expenses ?? [];
-  const incomes = incData?.incomes ?? [];
+  const baseCurrency = user?.currency ?? 'PEN';
+  const obligations = obligationData?.obligations ?? [];
+  const paidByObligation = obligationData?.paidByObligation ?? {};
+  const expenses = expenseData?.expenses ?? [];
+  const incomes = incomeData?.incomes ?? [];
 
-  function pmName(id: string) {
-    return pmData?.paymentMethods.find((p) => p.id === id)?.name ?? id;
+  function paymentMethodName(id: string) {
+    return pmData?.paymentMethods.find((method) => method.id === id)?.name ?? id;
   }
-  function pmIcon(id: string) {
-    const pm = pmData?.paymentMethods.find((p) => p.id === id);
-    return pm ? PM_ICONS[pm.type] : '❓';
+  function paymentMethodIcon(id: string) {
+    const paymentMethod = pmData?.paymentMethods.find((method) => method.id === id);
+    return paymentMethod ? PM_ICONS[paymentMethod.type] : '❓';
   }
-
-  const paidIds = oblData?.paidIds ?? [];
 
   const model = useMemo(() => {
-    const oblById = new Map(obligations.map((o) => [o.id, o]));
-    const byC: Record<string, Bucket> = {};
-    const bucket = (cur: string) => (byC[cur] ??= emptyBucket());
+    const bucketsByCurrency: Record<string, Bucket> = {};
+    const bucketFor = (currency: string) => (bucketsByCurrency[currency] ??= emptyBucket());
 
-    incomes.forEach((i) => (bucket(i.moneda).ing += i.monto));
+    incomes.forEach((income) => (bucketFor(income.moneda).income += income.monto));
 
-    // Cada gasto se clasifica por la obligación que paga (la obligación es una
-    // máscara; el dinero real es el gasto). Sin ligar → variable.
-    expenses.forEach((g) => {
-      const b = bucket(g.moneda);
-      const obl = g.obligationId ? oblById.get(g.obligationId) : undefined;
-      if (obl?.tipo === 'inversion') b.inv += g.monto;
-      else if (g.obligationId) b.gFijo += g.monto;
-      else b.gVar += g.monto;
+    // Cada gasto se clasifica por su propio `tipo` (snapshot congelado al pagar),
+    // sin mirar la obligación viva → editar una obligación no reclasifica pagos.
+    expenses.forEach((expense) => {
+      const bucket = bucketFor(expense.moneda);
+      if (expense.tipo === 'inversion') bucket.investment += expense.monto;
+      else if (expense.tipo === 'fijo') bucket.fixed += expense.monto;
+      else bucket.variable += expense.monto;
     });
 
-    // Pendiente por pagar: obligaciones vigentes del mes sin gasto ligado.
-    obligations.forEach((o) => {
-      if (paidIds.includes(o.id)) return;
-      const b = bucket(o.moneda);
-      if (o.tipo === 'inversion') b.pendInv += o.monto;
-      else b.pendGasto += o.monto;
+    // Pendiente por pagar = saldo (monto − ya pagado) de las obligaciones del mes.
+    obligations.forEach((obligation) => {
+      const paid = paidByObligation[obligation.id] ?? 0;
+      const remaining = Math.max(0, obligation.monto - paid);
+      if (remaining <= 0) return;
+      const bucket = bucketFor(obligation.moneda);
+      if (obligation.tipo === 'inversion') bucket.pendingInvestment += remaining;
+      else bucket.pendingExpense += remaining;
     });
 
-    const b = byC[base] ?? emptyBucket();
-    const ingT = b.ing;
-    const egresos = b.gFijo + b.gVar;
-    const inv = b.inv;
-    const disp = ingT - egresos;
-    const ahorro = disp - inv;
-    const pendTotal = b.pendGasto + b.pendInv;
-    const pct = ingT > 0 ? Math.min(((egresos + inv) / ingT) * 100, 100) : 0;
+    const baseBucket = bucketsByCurrency[baseCurrency] ?? emptyBucket();
+    const totalIncome = baseBucket.income;
+    const totalExpense = baseBucket.fixed + baseBucket.variable;
+    const investment = baseBucket.investment;
+    const available = totalIncome - totalExpense;
+    const savings = available - investment;
+    const pendingTotal = baseBucket.pendingExpense + baseBucket.pendingInvestment;
+    const spentPct =
+      totalIncome > 0 ? Math.min(((totalExpense + investment) / totalIncome) * 100, 100) : 0;
 
-    const currencies = Object.keys(byC).sort((a, x) => (a === base ? -1 : x === base ? 1 : 0));
+    // KPIs financieros.
+    const savingsRate = totalIncome > 0 ? (savings / totalIncome) * 100 : 0;
+    const outflow = totalExpense + investment;
+    const fixedRate = outflow > 0 ? (baseBucket.fixed / outflow) * 100 : 0;
 
-    // Uso por medio de pago: solo gastos reales (moneda base).
-    const pmStats: Record<string, PmStat> = {};
+    const currencies = Object.keys(bucketsByCurrency).sort((a, b) =>
+      a === baseCurrency ? -1 : b === baseCurrency ? 1 : 0,
+    );
+
+    // Uso por medio de pago: gastos reales de la moneda base (incluye pagos de
+    // obligación, que también salen por un medio de pago).
+    const statsByPaymentMethod: Record<string, PaymentMethodStat> = {};
     expenses
-      .filter((g) => g.moneda === base)
-      .forEach((g) => {
-        const k = g.paymentMethodId || 'xx';
-        if (!pmStats[k]) {
-          pmStats[k] = {
-            name: g.paymentMethodId ? pmName(g.paymentMethodId) : 'Sin asignar',
-            icon: g.paymentMethodId ? pmIcon(g.paymentMethodId) : '❓',
+      .filter((expense) => expense.moneda === baseCurrency)
+      .forEach((expense) => {
+        const key = expense.paymentMethodId || 'unassigned';
+        if (!statsByPaymentMethod[key]) {
+          statsByPaymentMethod[key] = {
+            name: expense.paymentMethodId ? paymentMethodName(expense.paymentMethodId) : 'Sin asignar',
+            icon: expense.paymentMethodId ? paymentMethodIcon(expense.paymentMethodId) : '❓',
             total: 0,
             count: 0,
-            cats: {},
+            categories: {},
           };
         }
-        const cat = g.catCustom?.trim() || g.cat || 'Otro';
-        pmStats[k].total += g.monto;
-        pmStats[k].count++;
-        pmStats[k].cats[cat] = (pmStats[k].cats[cat] || 0) + g.monto;
+        const category = expense.catCustom?.trim() || expense.cat || 'Otro';
+        const stat = statsByPaymentMethod[key];
+        stat.total += expense.monto;
+        stat.count++;
+        stat.categories[category] = (stat.categories[category] || 0) + expense.monto;
       });
-    const pmList = Object.values(pmStats).sort((a, x) => x.total - a.total);
-    const pmMax = pmList.length ? pmList[0].total : 1;
+    const paymentMethodUsage = Object.values(statsByPaymentMethod).sort((a, b) => b.total - a.total);
+    const paymentMethodMax = paymentMethodUsage.length ? paymentMethodUsage[0].total : 1;
 
-    // Ingresos por categoría (base)
-    const incByCat: Record<string, number> = {};
+    // Ingresos por categoría (moneda base).
+    const incomeByCategory: Record<string, number> = {};
     incomes
-      .filter((i) => i.moneda === base)
-      .forEach((i) => {
-        const c = i.catCustom?.trim() || i.cat;
-        incByCat[c] = (incByCat[c] || 0) + i.monto;
+      .filter((income) => income.moneda === baseCurrency)
+      .forEach((income) => {
+        const category = income.catCustom?.trim() || income.cat;
+        incomeByCategory[category] = (incomeByCategory[category] || 0) + income.monto;
       });
 
-    // Inversiones reales: gastos base ligados a una obligación de inversión.
-    const invItems = expenses.filter(
-      (g) => g.moneda === base && oblById.get(g.obligationId ?? '')?.tipo === 'inversion',
+    // Inversiones reales del mes = gastos snapshot 'inversion' (moneda base).
+    const investmentItems = expenses.filter(
+      (expense) => expense.moneda === baseCurrency && expense.tipo === 'inversion',
     );
-    // Pendientes: obligaciones base vigentes sin pagar.
-    const pendItems = obligations.filter((o) => o.moneda === base && !paidIds.includes(o.id));
+    // Pendientes: obligaciones base con saldo por pagar, con su saldo.
+    const pendingItems = obligations
+      .filter((obligation) => obligation.moneda === baseCurrency)
+      .map((obligation) => ({
+        obligation,
+        remaining: Math.max(0, obligation.monto - (paidByObligation[obligation.id] ?? 0)),
+      }))
+      .filter((item) => item.remaining > 0);
 
     return {
-      byC,
+      bucketsByCurrency,
       currencies,
-      ingT,
-      egresos,
-      inv,
-      disp,
-      ahorro,
-      pendTotal,
-      pct,
-      base_: b,
-      pmList,
-      pmMax,
-      incByCat,
-      invItems,
-      pendItems,
+      totalIncome,
+      totalExpense,
+      investment,
+      available,
+      savings,
+      pendingTotal,
+      spentPct,
+      savingsRate,
+      fixedRate,
+      baseBucket,
+      paymentMethodUsage,
+      paymentMethodMax,
+      incomeByCategory,
+      investmentItems,
+      pendingItems,
     };
-  }, [obligations, expenses, incomes, paidIds, base]);
+  }, [obligations, expenses, incomes, paidByObligation, baseCurrency]);
 
   return (
     <SafeAreaView className="flex-1 bg-slate-100 dark:bg-slate-900" edges={['top']}>
       <AppHeader title="Resumen" />
       <ScrollView contentContainerClassName="p-4 pb-8">
+        {/* Indicadores clave */}
+        <SectionTitle text="Indicadores" />
+        <View className="mb-3 flex-row gap-3">
+          <Kpi
+            label="Tasa de ahorro"
+            value={`${model.savingsRate.toFixed(0)}%`}
+            color={model.savingsRate >= 0 ? '#16a34a' : '#dc2626'}
+          />
+          <Kpi label="Gasto fijo" value={`${model.fixedRate.toFixed(0)}%`} color="#2563eb" />
+          <Kpi
+            label="Pendiente"
+            value={fmt(model.pendingTotal, baseCurrency)}
+            color={model.pendingTotal > 0 ? '#f59e0b' : '#16a34a'}
+          />
+        </View>
+
         {/* Balance por moneda */}
         {model.currencies.length > 1 && (
           <>
             <SectionTitle text="Balance por moneda" />
-            {model.currencies.map((cur) => {
-              const d = model.byC[cur];
-              const sym = currencySymbol(cur);
-              const egr = d.gFijo + d.gVar;
-              const dispC = d.ing - egr;
-              const ahorC = dispC - d.inv;
+            {model.currencies.map((currency) => {
+              const bucket = model.bucketsByCurrency[currency];
+              const symbol = currencySymbol(currency);
+              const outflow = bucket.fixed + bucket.variable;
+              const available = bucket.income - outflow;
+              const savings = available - bucket.investment;
               return (
-                <Card key={cur} accent="#2563eb">
+                <Card key={currency} accent="#2563eb">
                   <Text className="mb-2 text-xs font-bold uppercase text-slate-400">
-                    {cur} · {sym}
+                    {currency} · {symbol}
                   </Text>
-                  <Row l="Ingresos" v={`${sym} ${d.ing.toFixed(2)}`} c="#16a34a" />
-                  <Row l="Gastos fijos" v={`- ${sym} ${d.gFijo.toFixed(2)}`} c="#dc2626" />
-                  <Row l="Gastos variables" v={`- ${sym} ${d.gVar.toFixed(2)}`} c="#dc2626" />
-                  <Row l="Disponible" v={`${sym} ${dispC.toFixed(2)}`} c={dispC >= 0 ? '#16a34a' : '#dc2626'} bold />
-                  <Row l="Inversiones" v={`- ${sym} ${d.inv.toFixed(2)}`} c="#7c3aed" />
-                  <Row l="Ahorro libre" v={`${sym} ${ahorC.toFixed(2)}`} c={ahorC >= 0 ? '#16a34a' : '#dc2626'} bold />
+                  <Row l="Ingresos" v={`${symbol} ${bucket.income.toFixed(2)}`} c="#16a34a" />
+                  <Row l="Gastos fijos" v={`- ${symbol} ${bucket.fixed.toFixed(2)}`} c="#dc2626" />
+                  <Row l="Gastos variables" v={`- ${symbol} ${bucket.variable.toFixed(2)}`} c="#dc2626" />
+                  <Row l="Disponible" v={`${symbol} ${available.toFixed(2)}`} c={available >= 0 ? '#16a34a' : '#dc2626'} bold />
+                  <Row l="Inversiones" v={`- ${symbol} ${bucket.investment.toFixed(2)}`} c="#7c3aed" />
+                  <Row l="Ahorro libre" v={`${symbol} ${savings.toFixed(2)}`} c={savings >= 0 ? '#16a34a' : '#dc2626'} bold />
                 </Card>
               );
             })}
@@ -172,25 +218,25 @@ export default function ResumenScreen() {
         )}
 
         {/* Uso por medio de pago */}
-        {model.pmList.length > 0 && (
+        {model.paymentMethodUsage.length > 0 && (
           <>
             <SectionTitle text="Uso por medio de pago" />
             <Card>
               <Text className="mb-3 text-xs font-bold uppercase text-slate-400">
                 Qué medio usas más
               </Text>
-              {model.pmList.map((pm, i) => {
-                const pct = model.pmMax > 0 ? (pm.total / model.pmMax) * 100 : 0;
-                const topCats = Object.keys(pm.cats)
-                  .sort((a, b) => pm.cats[b] - pm.cats[a])
+              {model.paymentMethodUsage.map((usage, index) => {
+                const pct = model.paymentMethodMax > 0 ? (usage.total / model.paymentMethodMax) * 100 : 0;
+                const topCategories = Object.keys(usage.categories)
+                  .sort((a, b) => usage.categories[b] - usage.categories[a])
                   .slice(0, 3);
                 return (
-                  <View key={i} className="mb-3">
+                  <View key={index} className="mb-3">
                     <View className="flex-row justify-between">
                       <Text className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                        {pm.icon} {pm.name}
+                        {usage.icon} {usage.name}
                       </Text>
-                      <Text className="text-sm font-bold text-[#dc2626]">{fmt(pm.total, base)}</Text>
+                      <Text className="text-sm font-bold text-[#dc2626]">{fmt(usage.total, baseCurrency)}</Text>
                     </View>
                     <View className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
                       <View
@@ -199,7 +245,7 @@ export default function ResumenScreen() {
                       />
                     </View>
                     <Text className="mt-1 text-[11px] text-slate-400">
-                      {topCats.join(' · ')} · {pm.count} items
+                      {topCategories.join(' · ')} · {usage.count} items
                     </Text>
                   </View>
                 );
@@ -209,49 +255,51 @@ export default function ResumenScreen() {
         )}
 
         {/* Detalle */}
-        <SectionTitle text={`Detalle · ${currencySymbol(base)}`} />
+        <SectionTitle text={`Detalle · ${currencySymbol(baseCurrency)}`} />
 
         <Card>
-          <CardHeader title="Ingresos" total={fmt(model.ingT, base)} totalColor="#16a34a" />
-          {Object.keys(model.incByCat).length ? (
-            Object.keys(model.incByCat)
-              .sort((a, b) => model.incByCat[b] - model.incByCat[a])
-              .map((c) => <Row key={c} l={c} v={fmt(model.incByCat[c], base)} c="#16a34a" />)
+          <CardHeader title="Ingresos" total={fmt(model.totalIncome, baseCurrency)} totalColor="#16a34a" />
+          {Object.keys(model.incomeByCategory).length ? (
+            Object.keys(model.incomeByCategory)
+              .sort((a, b) => model.incomeByCategory[b] - model.incomeByCategory[a])
+              .map((category) => (
+                <Row key={category} l={category} v={fmt(model.incomeByCategory[category], baseCurrency)} c="#16a34a" />
+              ))
           ) : (
             <Text className="text-sm text-slate-400">Registra tus ingresos</Text>
           )}
         </Card>
 
         <Card>
-          <CardHeader title="Egresos" total={fmt(model.egresos, base)} totalColor="#dc2626" />
-          <Row l="Gastos fijos" v={fmt(model.base_.gFijo, base)} c="#dc2626" />
-          <Row l="Gastos variables" v={fmt(model.base_.gVar, base)} c="#dc2626" />
+          <CardHeader title="Egresos" total={fmt(model.totalExpense, baseCurrency)} totalColor="#dc2626" />
+          <Row l="Gastos fijos" v={fmt(model.baseBucket.fixed, baseCurrency)} c="#dc2626" />
+          <Row l="Gastos variables" v={fmt(model.baseBucket.variable, baseCurrency)} c="#dc2626" />
         </Card>
 
         <Card>
-          <CardHeader title="Inversiones" total={fmt(model.inv, base)} totalColor="#7c3aed" />
-          {model.invItems.length ? (
-            model.invItems.map((g) => (
-              <Row key={g.id} l={g.descripcion} v={fmt(g.monto, base)} c="#7c3aed" />
+          <CardHeader title="Inversiones" total={fmt(model.investment, baseCurrency)} totalColor="#7c3aed" />
+          {model.investmentItems.length ? (
+            model.investmentItems.map((expense) => (
+              <Row key={expense.id} l={expense.descripcion} v={fmt(expense.monto, baseCurrency)} c="#7c3aed" />
             ))
           ) : (
             <Text className="text-sm text-slate-400">Aún no registras inversiones este mes</Text>
           )}
         </Card>
 
-        {model.pendItems.length > 0 && (
+        {model.pendingItems.length > 0 && (
           <Card accent="#f59e0b">
-            <CardHeader title="Pendiente por pagar" total={fmt(model.pendTotal, base)} totalColor="#f59e0b" />
-            {model.pendItems.map((o) => (
+            <CardHeader title="Pendiente por pagar" total={fmt(model.pendingTotal, baseCurrency)} totalColor="#f59e0b" />
+            {model.pendingItems.map(({ obligation, remaining }) => (
               <Row
-                key={o.id}
-                l={`${o.nombre}${o.tipo === 'inversion' ? ' · Inv.' : ''}`}
-                v={fmt(o.monto, base)}
+                key={obligation.id}
+                l={`${obligation.nombre}${obligation.tipo === 'inversion' ? ' · Inv.' : ''}`}
+                v={fmt(remaining, baseCurrency)}
                 c="#f59e0b"
               />
             ))}
             <Text className="mt-1 text-[11px] text-slate-400">
-              Obligaciones vigentes de {label} sin gasto ligado.
+              Saldo de obligaciones vigentes de {label} sin terminar de pagar.
             </Text>
           </Card>
         )}
@@ -261,19 +309,19 @@ export default function ResumenScreen() {
           <Text className="mb-2 text-xs font-bold uppercase text-white/80">
             Balance General · {label}
           </Text>
-          <BRow l="Ingresos" v={fmt(model.ingT, base)} />
-          <BRow l="Egresos" v={`- ${fmt(model.egresos, base)}`} />
-          <BRow l="Disponible" v={fmt(model.disp, base)} strong vColor={model.disp >= 0 ? '#fff' : '#fca5a5'} />
-          <BRow l="Inversiones" v={`- ${fmt(model.inv, base)}`} />
-          <BRow l="Ahorro libre" v={fmt(model.ahorro, base)} strong vColor={model.ahorro >= 0 ? '#86efac' : '#fca5a5'} />
-          {model.pendTotal > 0 && (
-            <BRow l="Pendiente por pagar" v={fmt(model.pendTotal, base)} vColor="#fcd34d" />
+          <BRow l="Ingresos" v={fmt(model.totalIncome, baseCurrency)} />
+          <BRow l="Egresos" v={`- ${fmt(model.totalExpense, baseCurrency)}`} />
+          <BRow l="Disponible" v={fmt(model.available, baseCurrency)} strong vColor={model.available >= 0 ? '#fff' : '#fca5a5'} />
+          <BRow l="Inversiones" v={`- ${fmt(model.investment, baseCurrency)}`} />
+          <BRow l="Ahorro libre" v={fmt(model.savings, baseCurrency)} strong vColor={model.savings >= 0 ? '#86efac' : '#fca5a5'} />
+          {model.pendingTotal > 0 && (
+            <BRow l="Pendiente por pagar" v={fmt(model.pendingTotal, baseCurrency)} vColor="#fcd34d" />
           )}
           <View className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/25">
-            <View className="h-1.5 rounded-full bg-white/90" style={{ width: barWidth(model.pct) }} />
+            <View className="h-1.5 rounded-full bg-white/90" style={{ width: barWidth(model.spentPct) }} />
           </View>
           <Text className="mt-1 text-[11px] text-white/60">
-            {model.pct.toFixed(0)}% del ingreso gastado/invertido
+            {model.spentPct.toFixed(0)}% del ingreso gastado/invertido
           </Text>
         </View>
 
@@ -288,6 +336,17 @@ export default function ResumenScreen() {
 function SectionTitle({ text }: { text: string }) {
   return (
     <Text className="mb-2 mt-3 text-xs font-bold uppercase tracking-wide text-slate-400">{text}</Text>
+  );
+}
+
+function Kpi({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <View className="flex-1 rounded-2xl bg-white p-3 dark:bg-slate-800">
+      <Text className="text-lg font-extrabold" style={{ color }} numberOfLines={1}>
+        {value}
+      </Text>
+      <Text className="mt-0.5 text-[11px] text-slate-400">{label}</Text>
+    </View>
   );
 }
 

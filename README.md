@@ -34,15 +34,21 @@ Scripts raíz: `bun run dev:backend`, `bun run dev:app`, `bun run typecheck`.
 ## Modelo de datos (decisiones clave)
 
 - **Medios de pago:** lista libre por usuario (CRUD). "Borrar" = desactivar (`active:false`).
-- **Obligaciones:** gastos fijos recurrentes. Vencimiento = `dia` (1–31). Vigencia por
-  `mesInicio` / `mesFin` (opcional): una obligación aplica en el mes M si `mesInicio ≤ M ≤ mesFin`.
-- **"Pagada"** no se guarda: una obligación está pagada en un mes si tiene ≥1 **gasto ligado**
-  (`expenses.obligation_id`) ese mes. Los estados por fecha (Retrasado/Vence hoy/…) se calculan.
+- **Obligaciones = plantilla (menú) mutable:** gastos fijos recurrentes. Vencimiento = `dia`
+  (1–31). Vigencia por `mesInicio` / `mesFin` (opcional): aplica en el mes M si
+  `mesInicio ≤ M ≤ mesFin`. Editar una obligación solo afecta el plan de ahí en adelante.
+- **Gasto = snapshot inmutable:** cada gasto congela su propio `monto`, `tipo`
+  (`variable` / `fijo` / `inversion`), categoría y moneda. Editar la obligación NUNCA reescribe
+  pagos pasados. Un gasto suelto es `variable`; un pago de obligación congela `fijo`/`inversion`.
+- **Pago desde la obligación:** se paga con `POST /obligations/:id/pay` (botón "Pagar" en su
+  pestaña), que crea el gasto snapshot ligado. Soporta **pagos parciales** (varios pagos
+  acumulan) y **no permite sobrepago** (`monto ≤ saldo`). Estado del mes derivado del acumulado:
+  Pendiente (0) / **Parcial** (0 < pagado < monto) / Pagado (pagado ≥ monto).
 - **Referencias:** FK reales (`payment_method_id`, `obligation_id`) con `ON DELETE SET NULL`.
   `NULL` = "sin asignar".
-- **Resumen:** la obligación es una *máscara*, no suma como egreso. Solo cuenta dinero real
-  (ingresos + gastos). Cada gasto se clasifica por la obligación que paga (fijo / variable /
-  inversión), y se muestra "Pendiente por pagar" (obligaciones vigentes sin gasto ligado).
+- **Resumen:** la obligación no suma como egreso; solo cuenta dinero real (ingresos + gastos).
+  Cada gasto se clasifica por su `tipo` snapshot (sin mirar la obligación viva). Muestra KPIs
+  (tasa de ahorro, gasto fijo, pendiente) y "Pendiente por pagar" = saldo de obligaciones del mes.
 
 ## Deploy
 

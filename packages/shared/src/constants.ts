@@ -105,6 +105,20 @@ export const INCOME_CATEGORIES = [
 export const OBLIGATION_TYPES = ["gasto", "inversion"] as const;
 export type ObligationType = (typeof OBLIGATION_TYPES)[number];
 
+/**
+ * Clasificación de un gasto (snapshot). Un gasto suelto es "variable"; un pago
+ * de obligación congela "fijo" o "inversion" según el tipo de la obligación en
+ * el momento del pago. El Resumen clasifica por este campo, sin mirar la
+ * obligación viva (así editar la obligación no reclasifica pagos pasados).
+ */
+export const EXPENSE_KINDS = ["variable", "fijo", "inversion"] as const;
+export type ExpenseKind = (typeof EXPENSE_KINDS)[number];
+
+/** Tipo de obligación → clasificación congelada en el gasto al pagar. */
+export function kindForObligation(tipo: ObligationType): ExpenseKind {
+  return tipo === "inversion" ? "inversion" : "fijo";
+}
+
 export const MONTHS_ES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",

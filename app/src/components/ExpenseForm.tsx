@@ -5,8 +5,7 @@ import { Alert, Pressable, Text, View } from 'react-native';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Field } from '@/components/ui/Field';
 import { Picker, type Option } from '@/components/ui/Picker';
-import { useCreateExpense, useObligations, usePaymentMethods, useUpdateExpense } from '@/hooks/queries';
-import { useMonth } from '@/hooks/useMonth';
+import { useCreateExpense, usePaymentMethods, useUpdateExpense } from '@/hooks/queries';
 import { useAuth } from '@/lib/auth';
 import { today } from '@/lib/format';
 
@@ -17,9 +16,7 @@ type Props = { visible: boolean; onClose: () => void; editing?: Expense | null }
 
 export function ExpenseForm({ visible, onClose, editing }: Props) {
   const { user } = useAuth();
-  const { monthKey } = useMonth();
   const { data: pmData } = usePaymentMethods();
-  const { data: oblData } = useObligations(monthKey);
   const create = useCreateExpense();
   const update = useUpdateExpense();
 
@@ -29,7 +26,6 @@ export function ExpenseForm({ visible, onClose, editing }: Props) {
   const [cat, setCat] = useState('Alimentacion');
   const [catCustom, setCatCustom] = useState('');
   const [paymentMethodId, setPaymentMethodId] = useState('');
-  const [obligationId, setObligationId] = useState('');
   const [fecha, setFecha] = useState(today());
 
   useEffect(() => {
@@ -41,7 +37,6 @@ export function ExpenseForm({ visible, onClose, editing }: Props) {
       setCat(editing.cat || 'Alimentacion');
       setCatCustom(editing.catCustom);
       setPaymentMethodId(editing.paymentMethodId ?? '');
-      setObligationId(editing.obligationId ?? '');
       setFecha(editing.fecha);
     } else {
       setDescripcion('');
@@ -50,35 +45,33 @@ export function ExpenseForm({ visible, onClose, editing }: Props) {
       setCat('Alimentacion');
       setCatCustom('');
       setPaymentMethodId('');
-      setObligationId('');
       setFecha(today());
     }
   }, [visible, editing, user?.currency]);
 
-  const pmOptions: Option[] = [
+  const paymentMethodOptions: Option[] = [
     { value: '', label: 'Sin asignar' },
     ...(pmData?.paymentMethods ?? [])
-      .filter((p) => p.active)
-      .map((p) => ({ value: p.id, label: `${PM_ICONS[p.type]} ${p.name}` })),
-  ];
-  const oblOptions: Option[] = [
-    { value: '', label: 'Sin relación' },
-    ...(oblData?.obligations ?? []).map((o) => ({ value: o.id, label: o.nombre })),
+      .filter((method) => method.active)
+      .map((method) => ({ value: method.id, label: `${PM_ICONS[method.type]} ${method.name}` })),
   ];
 
   async function onSave() {
     if (!descripcion.trim()) return Alert.alert('Falta la descripción');
-    const m = parseFloat(monto);
-    if (!m || m <= 0) return Alert.alert('Monto inválido');
+    const amount = parseFloat(monto);
+    if (!amount || amount <= 0) return Alert.alert('Monto inválido');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return Alert.alert('Fecha inválida', 'Usa AAAA-MM-DD');
 
+    // Los gastos creados aquí son variables. Si se edita un gasto que era pago
+    // de obligación, se preservan su vínculo y clasificación (no se pierden).
     const data: ExpenseInput = {
       descripcion: descripcion.trim(),
-      monto: m,
+      monto: amount,
       cat,
       catCustom: catCustom.trim(),
       paymentMethodId: paymentMethodId || null,
-      obligationId: obligationId || null,
+      obligationId: editing?.obligationId ?? null,
+      tipo: editing?.tipo ?? 'variable',
       fecha,
       moneda,
     };
@@ -86,8 +79,8 @@ export function ExpenseForm({ visible, onClose, editing }: Props) {
       if (editing) await update.mutateAsync({ id: editing.id, data });
       else await create.mutateAsync(data);
       onClose();
-    } catch (e: any) {
-      Alert.alert('Error', e?.message ?? 'No se pudo guardar');
+    } catch (error: any) {
+      Alert.alert('Error', error?.message ?? 'No se pudo guardar');
     }
   }
 
@@ -122,8 +115,7 @@ export function ExpenseForm({ visible, onClose, editing }: Props) {
         onChangeText={setCatCustom}
         placeholder="Opcional"
       />
-      <Picker label="Medio de pago" value={paymentMethodId} options={pmOptions} onChange={setPaymentMethodId} />
-      <Picker label="Relacionar con obligación" value={obligationId} options={oblOptions} onChange={setObligationId} />
+      <Picker label="Medio de pago" value={paymentMethodId} options={paymentMethodOptions} onChange={setPaymentMethodId} />
       <Field label="Fecha" value={fecha} onChangeText={setFecha} placeholder="AAAA-MM-DD" />
 
       <View className="mt-2 flex-row gap-3">

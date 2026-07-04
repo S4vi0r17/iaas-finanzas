@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CURRENCY_CODES, OBLIGATION_TYPES, PM_TYPES } from "./constants";
+import { CURRENCY_CODES, EXPENSE_KINDS, OBLIGATION_TYPES, PM_TYPES } from "./constants";
 
 // ─── Primitivos reutilizables ─────────────────────────────────────────
 export const monthKey = z
@@ -16,6 +16,7 @@ export const currencyCode = z
 
 export const pmType = z.enum(PM_TYPES);
 export const obligationType = z.enum(OBLIGATION_TYPES);
+export const expenseKind = z.enum(EXPENSE_KINDS);
 
 const money = z.number().min(0, "El monto no puede ser negativo");
 const shortText = z.string().trim().max(120);
@@ -129,11 +130,25 @@ export const expenseInput = z.object({
   catCustom: shortText.default(""),
   paymentMethodId: optionalRef,
   obligationId: optionalRef,
+  // Clasificación snapshot. Los gastos creados desde la app son "variable";
+  // los pagos de obligación fijan "fijo"/"inversion" en el endpoint de pago.
+  tipo: expenseKind.default("variable"),
   fecha: dateStr,
   moneda: currencyCode,
 });
 
 export const expense = expenseInput.extend({ id: z.string() });
+
+/**
+ * Pago de una obligación (POST /obligations/:id/pay). La moneda, categoría,
+ * tipo y nombre se toman de la obligación (snapshot); aquí solo va el monto
+ * real, el medio de pago y la fecha.
+ */
+export const payObligationInput = z.object({
+  monto: money.gt(0, "Monto inválido"),
+  paymentMethodId: optionalRef,
+  fecha: dateStr,
+});
 
 // ─── Ingresos ─────────────────────────────────────────────────────────
 export const incomeInput = z.object({
@@ -160,5 +175,6 @@ export type Obligation = z.infer<typeof obligation>;
 export type ReorderObligationsInput = z.infer<typeof reorderObligationsInput>;
 export type ExpenseInput = z.infer<typeof expenseInput>;
 export type Expense = z.infer<typeof expense>;
+export type PayObligationInput = z.infer<typeof payObligationInput>;
 export type IncomeInput = z.infer<typeof incomeInput>;
 export type Income = z.infer<typeof income>;

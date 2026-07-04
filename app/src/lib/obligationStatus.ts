@@ -1,6 +1,6 @@
 import type { Obligation } from '@iaas/shared';
 
-export type StatusKey = 'Pagado' | 'Pendiente' | 'Proximo' | 'Vence hoy' | 'Retrasado';
+export type StatusKey = 'Pagado' | 'Parcial' | 'Pendiente' | 'Proximo' | 'Vence hoy' | 'Retrasado';
 
 export type StatusStyle = {
   label: StatusKey;
@@ -11,6 +11,7 @@ export type StatusStyle = {
 
 const STYLES: Record<StatusKey, StatusStyle> = {
   Pagado: { label: 'Pagado', badgeBg: '#f0fdf4', badgeText: '#16a34a', border: '#16a34a' },
+  Parcial: { label: 'Parcial', badgeBg: '#fefce8', badgeText: '#ca8a04', border: '#eab308' },
   Pendiente: { label: 'Pendiente', badgeBg: '#f1f5f9', badgeText: '#64748b', border: '#94a3b8' },
   Proximo: { label: 'Proximo', badgeBg: '#fff7ed', badgeText: '#ea580c', border: '#ea580c' },
   'Vence hoy': { label: 'Vence hoy', badgeBg: '#fef2f2', badgeText: '#dc2626', border: '#dc2626' },
@@ -28,14 +29,20 @@ export function dueDate(dia: number, selYear: number, selMonth: number): Date {
   return new Date(selYear, selMonth - 1, d);
 }
 
-/** Calcula el estado de una obligación para el mes seleccionado. */
+/**
+ * Estado de una obligación en el mes según cuánto se ha pagado:
+ * - pagado ≥ monto        → Pagado
+ * - 0 < pagado < monto    → Parcial
+ * - pagado == 0           → Pendiente / Proximo / Vence hoy / Retrasado (por fecha)
+ */
 export function computeStatus(
   o: Obligation,
-  paid: boolean,
+  pagado: number,
   selYear: number,
   selMonth: number,
 ): StatusStyle {
-  if (paid) return STYLES.Pagado;
+  if (o.monto > 0 && pagado >= o.monto) return STYLES.Pagado;
+  if (pagado > 0) return STYLES.Parcial;
 
   const t = new Date();
   const today = new Date(t.getFullYear(), t.getMonth(), t.getDate());

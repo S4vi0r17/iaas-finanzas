@@ -6,6 +6,7 @@ import type {
   IncomeInput,
   Obligation,
   ObligationInput,
+  PayObligationInput,
   PaymentMethod,
   UpdatePaymentMethodInput,
   UpdateUserInput,
@@ -17,12 +18,32 @@ import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 
 // ─── Obligaciones ─────────────────────────────────────────────────────
-type ObligationsResponse = { obligations: Obligation[]; paidIds: string[] };
+// `paidByObligation`: monto pagado de cada obligación este mes (mapa
+// obligationId → total pagado), para soportar pagos parciales.
+type ObligationsResponse = {
+  obligations: Obligation[];
+  paidByObligation: Record<string, number>;
+};
 
 export function useObligations(monthKey: string) {
   return useQuery({
     queryKey: ['obligations', monthKey],
     queryFn: () => apiFetch<ObligationsResponse>(`/api/obligations?month=${monthKey}`),
+  });
+}
+
+export function usePayObligation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: PayObligationInput }) =>
+      apiFetch<{ expense: Expense; paid: number; remaining: number }>(
+        `/api/obligations/${id}/pay`,
+        { method: 'POST', body: data },
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['obligations'] });
+      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+    },
   });
 }
 

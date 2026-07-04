@@ -9,18 +9,19 @@ import { ActivityIndicator, Alert, FlatList, Pressable, Text, TextInput, View } 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ObligationForm } from '@/components/ObligationForm';
+import { ObligationPaySheet } from '@/components/ObligationPaySheet';
 import { AppHeader } from '@/components/ui/AppHeader';
 import { Metrics, type Metric } from '@/components/ui/Metrics';
 import { useDeleteObligation, useObligations, usePaymentMethods } from '@/hooks/queries';
 import { useMonth } from '@/hooks/useMonth';
 import { useAuth } from '@/lib/auth';
 import { fmt, fmtShort } from '@/lib/format';
-import { computeStatus, type StatusKey } from '@/lib/obligationStatus';
+import { computeStatus } from '@/lib/obligationStatus';
 
 const FILTERS: { value: string; label: string }[] = [
   { value: '', label: 'Todos' },
   { value: 'Pendiente', label: 'Pendiente' },
-  { value: 'Proximo', label: 'Próximo' },
+  { value: 'Parcial', label: 'Parcial' },
   { value: 'Retrasado', label: 'Retrasado' },
   { value: 'Pagado', label: 'Pagado' },
 ];
@@ -36,48 +37,54 @@ export default function ObligacionesScreen() {
   const [filter, setFilter] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Obligation | null>(null);
+  const [paying, setPaying] = useState<Obligation | null>(null);
 
   const baseCurrency = user?.currency ?? 'PEN';
   const obligations = data?.obligations ?? [];
-  const paidIds = data?.paidIds ?? [];
+  const paidByObligation = data?.paidByObligation ?? {};
+  const paidFor = (id: string) => paidByObligation[id] ?? 0;
 
-  function pmLabel(id: string | null) {
-    const pm = pmData?.paymentMethods.find((p) => p.id === id);
-    return pm ? `${PM_ICONS[pm.type]} ${pm.name}` : '';
+  function paymentMethodLabel(id: string | null) {
+    const paymentMethod = pmData?.paymentMethods.find((method) => method.id === id);
+    return paymentMethod ? `${PM_ICONS[paymentMethod.type]} ${paymentMethod.name}` : '';
   }
 
   const metrics = useMemo<Metric[]>(() => {
-    let tot = 0;
-    let retrasadas = 0;
-    let inversiones = 0;
-    for (const o of obligations) {
-      if (o.moneda === baseCurrency) tot += o.monto;
-      if (o.tipo === 'inversion') inversiones++;
-      const st = computeStatus(o, paidIds.includes(o.id), year, month).label;
-      if (st === 'Retrasado') retrasadas++;
+    let total = 0;
+    let paidCount = 0;
+    let partialCount = 0;
+    let overdueCount = 0;
+    for (const obligation of obligations) {
+      if (obligation.moneda === baseCurrency) total += obligation.monto;
+      const status = computeStatus(obligation, paidFor(obligation.id), year, month).label;
+      if (status === 'Pagado') paidCount++;
+      else if (status === 'Parcial') partialCount++;
+      else if (status === 'Retrasado') overdueCount++;
     }
     return [
-      { value: fmtShort(tot, baseCurrency), label: `Total ${baseCurrency}` },
+      { value: fmtShort(total, baseCurrency), label: `Total ${baseCurrency}` },
       {
         value: String(obligations.length),
         label: user?.isPro ? 'Total' : `Total/${MAX_FREE_OBLIGATIONS}`,
       },
-      { value: String(paidIds.length), label: 'Pagadas', color: '#16a34a' },
-      { value: String(retrasadas), label: 'Retrasadas', color: retrasadas ? '#dc2626' : undefined },
-      { value: String(inversiones), label: 'Inversiones', color: '#7c3aed' },
+      { value: String(paidCount), label: 'Pagadas', color: '#16a34a' },
+      { value: String(partialCount), label: 'Parciales', color: partialCount ? '#ca8a04' : undefined },
+      { value: String(overdueCount), label: 'Retrasadas', color: overdueCount ? '#dc2626' : undefined },
     ];
-  }, [obligations, paidIds, baseCurrency, year, month, user?.isPro]);
+  }, [obligations, paidByObligation, baseCurrency, year, month, user?.isPro]);
 
   const list = useMemo(() => {
-    const q = search.toLowerCase();
-    return obligations.filter((o) => {
-      const st = computeStatus(o, paidIds.includes(o.id), year, month).label;
+    const query = search.toLowerCase();
+    return obligations.filter((obligation) => {
+      const status = computeStatus(obligation, paidFor(obligation.id), year, month).label;
       const matchFilter =
-        !filter || st === filter || (filter === 'Proximo' && st === 'Vence hoy');
-      const matchSearch = !q || o.nombre.toLowerCase().includes(q);
+        !filter ||
+        status === filter ||
+        (filter === 'Pendiente' && (status === 'Proximo' || status === 'Vence hoy'));
+      const matchSearch = !query || obligation.nombre.toLowerCase().includes(query);
       return matchFilter && matchSearch;
     });
-  }, [obligations, paidIds, search, filter, year, month]);
+  }, [obligations, paidByObligation, search, filter, year, month]);
 
   function confirmDelete(id: string) {
     Alert.alert('Eliminar', '¿Eliminar esta obligación?', [
@@ -142,17 +149,18 @@ export default function ObligacionesScreen() {
         }
         renderItem={({ item }) => (
           <ObligationCard
-            o={item}
-            paid={paidIds.includes(item.id)}
+            obligation={item}
+            paidAmount={paidFor(item.id)}
             year={year}
             month={month}
-            pmLabel={pmLabel(item.paymentMethodId)}
+            paymentMethodLabel={paymentMethodLabel(item.paymentMethodId)}
             baseCurrency={baseCurrency}
             onEdit={() => {
               setEditing(item);
               setFormOpen(true);
             }}
             onDelete={() => confirmDelete(item.id)}
+            onPay={() => setPaying(item)}
           />
         )}
         ListEmptyComponent={
@@ -167,67 +175,102 @@ export default function ObligacionesScreen() {
       />
 
       <ObligationForm visible={formOpen} onClose={() => setFormOpen(false)} editing={editing} />
+      <ObligationPaySheet
+        visible={paying !== null}
+        onClose={() => setPaying(null)}
+        obligation={paying}
+      />
     </SafeAreaView>
   );
 }
 
 function ObligationCard({
-  o,
-  paid,
+  obligation,
+  paidAmount,
   year,
   month,
-  pmLabel,
+  paymentMethodLabel,
   baseCurrency,
   onEdit,
   onDelete,
+  onPay,
 }: {
-  o: Obligation;
-  paid: boolean;
+  obligation: Obligation;
+  paidAmount: number;
   year: number;
   month: number;
-  pmLabel: string;
+  paymentMethodLabel: string;
   baseCurrency: string;
   onEdit: () => void;
   onDelete: () => void;
+  onPay: () => void;
 }) {
-  const status = computeStatus(o, paid, year, month);
-  const icon = OBLIGATION_CATEGORY_ICONS[o.cat] ?? '📋';
-  const dateLabel = `Día ${o.dia}`;
-  const showCurrency = o.moneda !== baseCurrency;
+  const status = computeStatus(obligation, paidAmount, year, month);
+  const icon = OBLIGATION_CATEGORY_ICONS[obligation.cat] ?? '📋';
+  const dateLabel = `Día ${obligation.dia}`;
+  const showCurrency = obligation.moneda !== baseCurrency;
+  const fullyPaid = status.label === 'Pagado';
+  const progress = obligation.monto > 0 ? Math.min(paidAmount / obligation.monto, 1) : fullyPaid ? 1 : 0;
+  const showProgress = paidAmount > 0 && !fullyPaid;
 
   return (
     <View
-      className="mx-4 mb-2 flex-row items-center gap-3 rounded-2xl bg-white p-3 dark:bg-slate-800"
-      style={{ borderLeftWidth: 4, borderLeftColor: status.border, opacity: paid ? 0.65 : 1 }}
+      className="mx-4 mb-2 rounded-2xl bg-white p-3 dark:bg-slate-800"
+      style={{ borderLeftWidth: 4, borderLeftColor: status.border, opacity: fullyPaid ? 0.7 : 1 }}
     >
-      <Text className="text-2xl">{icon}</Text>
+      <View className="flex-row items-center gap-3">
+        <Text className="text-2xl">{icon}</Text>
 
-      <View className="flex-1">
-        <Text className="font-semibold text-slate-800 dark:text-slate-100" numberOfLines={1}>
-          {o.nombre}
-        </Text>
-        <View className="mt-1 flex-row flex-wrap items-center gap-1">
-          {dateLabel ? <Pill text={dateLabel} /> : null}
-          {o.mesFin ? <Pill text={`Hasta ${o.mesFin}`} /> : null}
-          {o.tipo === 'inversion' ? <Pill text="Inv." tone="purple" /> : null}
-          {showCurrency ? <Pill text={o.moneda} tone="blue" /> : null}
-          {pmLabel ? <Pill text={pmLabel} tone="green" /> : null}
+        <View className="flex-1">
+          <Text className="font-semibold text-slate-800 dark:text-slate-100" numberOfLines={1}>
+            {obligation.nombre}
+          </Text>
+          <View className="mt-1 flex-row flex-wrap items-center gap-1">
+            {dateLabel ? <Pill text={dateLabel} /> : null}
+            {obligation.mesFin ? <Pill text={`Hasta ${obligation.mesFin}`} /> : null}
+            {obligation.tipo === 'inversion' ? <Pill text="Inv." tone="purple" /> : null}
+            {showCurrency ? <Pill text={obligation.moneda} tone="blue" /> : null}
+            {paymentMethodLabel ? <Pill text={paymentMethodLabel} tone="green" /> : null}
+          </View>
         </View>
-        <View className="mt-2 flex-row gap-2">
-          <ActionBtn label="✎" onPress={onEdit} />
-          <ActionBtn label="🗑" onPress={onDelete} />
+
+        <View className="items-end gap-1">
+          <Text className="font-bold text-slate-800 dark:text-slate-100">
+            {fmt(obligation.monto, obligation.moneda)}
+          </Text>
+          <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: status.badgeBg }}>
+            <Text className="text-[11px] font-bold" style={{ color: status.badgeText }}>
+              {status.label}
+            </Text>
+          </View>
         </View>
       </View>
 
-      <View className="items-end gap-1">
-        <Text className="font-bold text-slate-800 dark:text-slate-100">
-          {fmt(o.monto, o.moneda)}
-        </Text>
-        <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: status.badgeBg }}>
-          <Text className="text-[11px] font-bold" style={{ color: status.badgeText }}>
-            {status.label}
+      {/* Barra de progreso para pagos parciales */}
+      {showProgress && (
+        <View className="mt-2">
+          <View className="h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+            <View className="h-1.5 rounded-full bg-[#eab308]" style={{ width: `${Math.round(progress * 100)}%` }} />
+          </View>
+          <Text className="mt-1 text-[11px] text-slate-400">
+            {fmt(paidAmount, obligation.moneda)} de {fmt(obligation.monto, obligation.moneda)} · falta{' '}
+            {fmt(obligation.monto - paidAmount, obligation.moneda)}
           </Text>
         </View>
+      )}
+
+      {/* Acciones */}
+      <View className="mt-2 flex-row items-center gap-2">
+        <Pressable
+          onPress={onPay}
+          className={`flex-1 items-center rounded-lg py-2 active:opacity-80 ${fullyPaid ? 'bg-slate-100 dark:bg-slate-700' : 'bg-[#16a34a]'}`}
+        >
+          <Text className={`text-sm font-semibold ${fullyPaid ? 'text-slate-500 dark:text-slate-300' : 'text-white'}`}>
+            {fullyPaid ? 'Ver pagos' : paidAmount > 0 ? 'Pagar saldo' : '💵 Pagar'}
+          </Text>
+        </Pressable>
+        <ActionBtn label="✎" onPress={onEdit} />
+        <ActionBtn label="🗑" onPress={onDelete} />
       </View>
     </View>
   );

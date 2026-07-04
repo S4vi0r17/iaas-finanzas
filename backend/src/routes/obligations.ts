@@ -1,10 +1,13 @@
 import {
   MAX_FREE_OBLIGATIONS,
+  kindForObligation,
   obligationInput,
+  payObligationInput,
   reorderObligationsInput,
+  type Expense,
   type Obligation,
 } from "@iaas/shared";
-import { and, asc, eq, gte, isNotNull, isNull, like, lte, max, or } from "drizzle-orm";
+import { and, asc, eq, gte, isNull, like, lte, max, or, sql, sum } from "drizzle-orm";
 import { Hono } from "hono";
 import { randomUUID } from "node:crypto";
 import { db } from "../db/client";
@@ -31,7 +34,11 @@ function toObligation(row: typeof obligations.$inferSelect): Obligation {
 
 export const obligationRoutes = new Hono<AuthEnv>();
 
-/** Lista obligaciones; con ?month=YYYY-MM incluye los IDs pagados ese mes. */
+/**
+ * Lista obligaciones; con ?month=YYYY-MM devuelve además `pagos`: cuánto se ha
+ * pagado de cada obligación ese mes (suma de gastos ligados). El estado
+ * (pendiente / parcial / pagado) se deriva comparando `pagos[id]` con `monto`.
+ */
 obligationRoutes.get("/", (c) => {
   const userId = c.get("userId");
   const month = c.req.query("month");
@@ -50,24 +57,22 @@ obligationRoutes.get("/", (c) => {
     .orderBy(asc(obligations.sortOrder))
     .all();
 
-  // Una obligación está "pagada" en el mes si tiene ≥1 gasto ligado ese mes.
-  let paidIds: string[] = [];
+  // Monto pagado por obligación ese mes = SUMA de gastos ligados (no booleano,
+  // para soportar pagos parciales).
+  const paidByObligation: Record<string, number> = {};
   if (month) {
-    const linked = db
-      .select({ id: expenses.obligationId })
+    const paidRows = db
+      .select({ obligationId: expenses.obligationId, total: sum(expenses.monto).mapWith(Number) })
       .from(expenses)
-      .where(
-        and(
-          eq(expenses.userId, userId),
-          like(expenses.fecha, `${month}-%`),
-          isNotNull(expenses.obligationId),
-        ),
-      )
+      .where(and(eq(expenses.userId, userId), like(expenses.fecha, `${month}-%`)))
+      .groupBy(expenses.obligationId)
       .all();
-    paidIds = [...new Set(linked.map((r) => r.id).filter((id): id is string => id !== null))];
+    for (const paidRow of paidRows) {
+      if (paidRow.obligationId) paidByObligation[paidRow.obligationId] = paidRow.total ?? 0;
+    }
   }
 
-  return c.json({ obligations: rows.map(toObligation), paidIds });
+  return c.json({ obligations: rows.map(toObligation), paidByObligation });
 });
 
 obligationRoutes.post("/", async (c) => {
@@ -93,6 +98,81 @@ obligationRoutes.post("/", async (c) => {
   db.insert(obligations).values({ id, userId, ...data, sortOrder }).run();
   const row = db.select().from(obligations).where(eq(obligations.id, id)).get()!;
   return c.json({ obligation: toObligation(row) }, 201);
+});
+
+/**
+ * Paga (total o parcialmente) una obligación: crea un gasto snapshot ligado.
+ * El tipo/categoría/moneda/nombre se congelan desde la obligación; el monto es
+ * el pago real. No permite sobrepago: monto ≤ saldo pendiente del mes.
+ */
+obligationRoutes.post("/:id/pay", async (c) => {
+  const userId = c.get("userId");
+  const id = c.req.param("id");
+  const { monto, paymentMethodId, fecha } = await parseBody(c, payObligationInput);
+
+  const obligation = db
+    .select()
+    .from(obligations)
+    .where(and(eq(obligations.id, id), eq(obligations.userId, userId)))
+    .get();
+  if (!obligation) return c.json({ error: "Obligación no encontrada" }, 404);
+
+  const month = fecha.slice(0, 7); // YYYY-MM
+  if (month < obligation.mesInicio || (obligation.mesFin && month > obligation.mesFin)) {
+    return c.json({ error: "La obligación no está vigente ese mes" }, 400);
+  }
+
+  // Saldo pendiente = monto planeado − ya pagado ese mes.
+  const alreadyPaid =
+    db
+      .select({ total: sum(expenses.monto).mapWith(Number) })
+      .from(expenses)
+      .where(
+        and(
+          eq(expenses.userId, userId),
+          eq(expenses.obligationId, id),
+          like(expenses.fecha, `${month}-%`),
+        ),
+      )
+      .get()?.total ?? 0;
+
+  const remaining = Math.round((obligation.monto - alreadyPaid) * 100) / 100;
+  if (remaining <= 0) return c.json({ error: "La obligación ya está pagada este mes" }, 409);
+  if (monto > remaining) {
+    return c.json({ error: "El pago excede el saldo pendiente", remaining }, 400);
+  }
+
+  const expenseId = randomUUID();
+  db.insert(expenses)
+    .values({
+      id: expenseId,
+      userId,
+      descripcion: obligation.nombre,
+      monto,
+      cat: obligation.cat,
+      catCustom: obligation.catCustom,
+      paymentMethodId: paymentMethodId ?? obligation.paymentMethodId,
+      obligationId: id,
+      tipo: kindForObligation(obligation.tipo as Obligation["tipo"]),
+      fecha,
+      moneda: obligation.moneda,
+    })
+    .run();
+
+  const row = db.select().from(expenses).where(eq(expenses.id, expenseId)).get()!;
+  const expense: Expense = {
+    id: row.id,
+    descripcion: row.descripcion,
+    monto: row.monto,
+    cat: row.cat,
+    catCustom: row.catCustom,
+    paymentMethodId: row.paymentMethodId,
+    obligationId: row.obligationId,
+    tipo: row.tipo as Expense["tipo"],
+    fecha: row.fecha,
+    moneda: row.moneda,
+  };
+  return c.json({ expense, paid: alreadyPaid + monto, remaining: remaining - monto }, 201);
 });
 
 /** Reordena (flechas ↑/↓ del HTML). Debe ir ANTES de PATCH /:id. */

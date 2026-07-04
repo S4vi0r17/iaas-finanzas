@@ -80,6 +80,9 @@ export const expenses = sqliteTable(
     obligationId: text("obligation_id").references(() => obligations.id, {
       onDelete: "set null",
     }),
+    // Clasificación congelada (snapshot): variable | fijo | inversion.
+    // El Resumen agrupa por esta columna, no por el tipo de la obligación viva.
+    tipo: text("tipo").notNull().default("variable"),
     fecha: text("fecha").notNull(), // YYYY-MM-DD
     moneda: text("moneda").notNull().default("PEN"),
   },
