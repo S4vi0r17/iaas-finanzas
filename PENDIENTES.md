@@ -14,11 +14,16 @@ Mejoras de modelo ya aplicadas (detalle en las secciones de abajo):
 - Medios de pago: lista libre por usuario (ya no 14 slots fijos).
 - FK reales con ON DELETE SET NULL (payment_method_id, obligation_id).
 - Obligaciones: vencimiento por `dia` recurrente + vigencia (mesInicio / mesFin opcional).
-- "Pagada" derivada de gastos ligados (sin toggle manual ni tabla obligation_status).
-- Resumen sin doble conteo: la obligacion es una "mascara"; solo cuenta dinero real.
+- Modelo plantilla + snapshot: la obligacion es una plantilla mutable; cada gasto congela su
+  propio `tipo` (variable/fijo/inversion). Editar una obligacion no reescribe pagos pasados.
+- Pago desde la obligacion (POST /obligations/:id/pay): boton "Pagar" con pagos parciales
+  (acumulan) y sin sobrepago. Estado del mes derivado del acumulado: Pendiente / Parcial / Pagado.
+- Resumen sin doble conteo: solo cuenta dinero real (ingresos + gastos), clasificando por el
+  `tipo` snapshot del gasto. KPIs: tasa de ahorro, gasto fijo %, pendiente por pagar.
 
-Estado de pruebas: `bun run typecheck` pasa en shared/backend/app. Los flujos se verificaron
-con scripts e2e ad-hoc contra el backend. NO hay suite de tests versionada ni CI (ver Gaps).
+Estado de pruebas: `bun run typecheck` pasa en shared/backend/app. El flujo de pago se verifico
+e2e contra el backend (pago parcial, acumulado, guard de sobrepago 400, 409 al re-pagar, snapshot
+de tipo, guard de vigencia). NO hay suite de tests versionada ni CI (ver Gaps).
 
 ## Pendientes por fase
 
@@ -40,14 +45,16 @@ con scripts e2e ad-hoc contra el backend. NO hay suite de tests versionada ni CI
 ## CRUD por completar
 
 Estado actual del CRUD por recurso:
-- Obligaciones: crear, editar, borrar, reordenar (backend). "Pagada" ya no es un toggle:
-  se deriva de tener >=1 gasto ligado (expenses.obligation_id) en el mes. Vencimiento =
-  campo `dia` (1-31) recurrente; la fecha del mes se calcula (ver app/src/lib/obligationStatus.ts).
-  Vigencia: cada obligacion tiene mesInicio y mesFin (opcional); el GET ?month filtra a
-  las vigentes ese mes. "Dar de baja" = poner mesFin (conserva historia); borrar = quitar
-  de todos los meses.
+- Obligaciones: crear, editar, borrar, reordenar (backend). Se **pagan** desde su pestaña con
+  el boton "Pagar" (ObligationPaySheet): POST /obligations/:id/pay crea un gasto snapshot ligado,
+  con pagos parciales y sin sobrepago; deshacer un pago = borrar ese gasto. El estado del mes se
+  deriva del acumulado pagado vs `monto` (Pendiente/Parcial/Pagado). Vencimiento = campo `dia`
+  (1-31) recurrente. Vigencia: mesInicio/mesFin (opcional); el GET ?month filtra a las vigentes y
+  devuelve `paidByObligation` (monto pagado por obligacion). "Dar de baja" = poner mesFin
+  (conserva historia); borrar = quitar de todos los meses.
 - Usuario: completo (ver, editar).
-- Gastos: completo (crear, listar, editar PATCH, borrar). Tocar la fila abre editar.
+- Gastos: completo (crear, listar, editar PATCH, borrar). La pestaña muestra solo gastos
+  variables; los pagos de obligacion se gestionan desde la pestaña de Obligaciones.
 - Ingresos: completo (crear, listar, editar PATCH, borrar). Tocar la fila abre editar.
 - Medios de pago: completo. Lista libre por usuario (no slots fijos). Crear (POST),
   editar nombre/tipo, desactivar (PATCH active:false). UI en Ajustes con "Agregar".
@@ -64,11 +71,14 @@ Estado actual del CRUD por recurso:
 
 - Vigencia: HECHO (mesInicio + mesFin). Falta UI opcional de "dar de baja este mes" con
   un boton (hoy se hace editando el campo mesFin en el formulario).
-- Doble conteo en Resumen: RESUELTO. El Resumen ya NO suma obligaciones. La obligacion
-  es una "mascara": solo cuenta dinero real (ingresos + gastos). Cada gasto se clasifica
-  por la obligacion que paga: ligado a obl. gasto -> gasto fijo; ligado a obl. inversion
-  -> inversion; sin ligar -> gasto variable. Ademas muestra "Pendiente por pagar" =
-  obligaciones vigentes del mes sin gasto ligado (separadas gasto/inversion).
+- Doble conteo en Resumen: RESUELTO. El Resumen ya NO suma obligaciones; solo cuenta dinero
+  real (ingresos + gastos). Cada gasto se clasifica por su propio `tipo` snapshot
+  (variable / fijo / inversion), sin mirar la obligacion viva, asi que editar una obligacion no
+  reclasifica pagos pasados. "Pendiente por pagar" = SALDO (monto - ya pagado) de las
+  obligaciones del mes, separando gasto/inversion (soporta pagos parciales).
+- Pagos parciales: HECHO. El estado no es booleano: se compara el acumulado pagado vs `monto`.
+  El pago se hace desde la obligacion (POST /obligations/:id/pay), prellena el saldo y no permite
+  sobrepago (si el recibo real sube, se edita el monto de la obligacion y luego se paga).
 
 ## Mejoras menores
 
@@ -81,7 +91,8 @@ Estado actual del CRUD por recurso:
 ## Gaps de calidad
 
 - No hay suite de tests versionada. Los flujos se probaron con scripts e2e ad-hoc; conviene
-  dejar tests reales (ej. bun test) para obligaciones, gastos, vigencia y calculo del resumen.
+  dejar tests reales (ej. bun test) para: pago de obligacion (parcial, acumulado, guard de
+  sobrepago y de vigencia), snapshot de `tipo`, vigencia, y calculo del resumen/KPIs.
 - No hay CI (.github/workflows). Falta un workflow que corra `bun run typecheck` (+ tests) por push.
 - Metric "Total/N" en la pantalla de Obligaciones: la lista se filtra por vigencia del mes,
   asi que ese conteo es por-mes, pero el limite gratis (MAX_FREE_OBLIGATIONS) es global. Revisar
@@ -101,6 +112,10 @@ Estado actual del CRUD por recurso:
 - Backend local: `cd backend && JWT_SECRET=dev DB_PATH=./data/dev.sqlite bun run dev`.
 - App: `cd app && bunx expo start`.
 - Deploy backend en Dokploy con el Dockerfile de la raiz. El SQLite va en volumen persistente (/app/data).
+- Migraciones: `runMigrations()` corre al arrancar (backend/src/db/client.ts), asi que desplegar
+  = reiniciar el contenedor y aplica lo pendiente. La migracion `0001` agrega `expenses.tipo`
+  (default 'variable') y hace backfill de los gastos ya ligados (fijo/inversion segun la obligacion).
+  El volumen persistente conserva la DB, asi que el ALTER TABLE corre una sola vez sobre la prod.
 - Integridad referencial: obligations.payment_method_id, expenses.payment_method_id y
   expenses.obligation_id son FK reales (convencion tabla_id) con ON DELETE SET NULL.
   NULL = "sin asignar" (ya no se usa "" para eso). El input Zod convierte ""/ausente -> null.

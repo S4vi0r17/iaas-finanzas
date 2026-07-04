@@ -34,14 +34,18 @@ EXPO_PUBLIC_API_URL=http://TU_IP_LAN:3000
 ```
 src/
   app/            # rutas (Expo Router): login, (tabs)/index|gastos|ingresos|resumen
-  components/     # formularios (Obligation/Expense/Income), SettingsSheet, ui/
+  components/     # ObligationForm, ObligationPaySheet, ExpenseForm, IncomeForm, SettingsSheet, ui/
   hooks/          # queries (TanStack), useMonth
   lib/            # api, auth, config, format, obligationStatus
 ```
 
 ## Notas
 
-- Los estados de una obligación (Pagado / Retrasado / Vence hoy / Próximo / Pendiente)
-  se calculan en `src/lib/obligationStatus.ts`: solo "Pagado" viene del backend (derivado
-  de tener un gasto ligado ese mes); los demás se derivan del `dia` de vencimiento.
+- Las obligaciones se **pagan desde su pestaña** con el botón "Pagar" (`ObligationPaySheet`):
+  soporta pagos parciales y no permite sobrepago. La pestaña Gastos muestra solo gastos
+  variables (`tipo === 'variable'`).
+- Los estados de una obligación se calculan en `src/lib/obligationStatus.ts` a partir de cuánto
+  se pagó ese mes (`paidByObligation` del backend) y el `dia` de vencimiento:
+  **Pagado** (pagado ≥ monto) / **Parcial** (0 < pagado < monto) / Retrasado / Vence hoy /
+  Próximo / Pendiente.
 - Antes de escribir código nuevo, leer `AGENTS.md` (docs versionadas de Expo v55).
