@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { apiFetch, setApiToken } from "./api";
+import { apiFetch, setApiToken, setUnauthorizedHandler } from "./api";
 
 const TOKEN_KEY = "iaas_token";
 
@@ -73,6 +73,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setApiToken(null);
     setUser(null);
   }
+
+  // Cualquier 401 del backend (token inválido, o sesión de un usuario que ya
+  // no existe en la DB, p. ej. tras un reset en un redeploy) fuerza logout en
+  // vez de dejar al usuario atascado viendo un error genérico en cada acción.
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      logout();
+    });
+    return () => setUnauthorizedHandler(null);
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, loading, login, register, logout, setUser }}>

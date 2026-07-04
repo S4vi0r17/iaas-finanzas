@@ -7,6 +7,13 @@ export function setApiToken(token: string | null) {
   authToken = token;
 }
 
+let onUnauthorized: (() => void) | null = null;
+
+/** Registrado por el AuthProvider: se llama ante cualquier 401 para forzar logout. */
+export function setUnauthorizedHandler(handler: (() => void) | null) {
+  onUnauthorized = handler;
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -40,6 +47,7 @@ export async function apiFetch<T>(path: string, opts: RequestOptions = {}): Prom
 
   const json = (await res.json().catch(() => ({}))) as any;
   if (!res.ok) {
+    if (res.status === 401) onUnauthorized?.();
     throw new ApiError(res.status, json?.error ?? "Error inesperado", json?.issues);
   }
   return json as T;
