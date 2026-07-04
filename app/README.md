@@ -49,3 +49,4 @@ src/
   **Pagado** (pagado ≥ monto) / **Parcial** (0 < pagado < monto) / Retrasado / Vence hoy /
   Próximo / Pendiente.
 - Antes de escribir código nuevo, leer `AGENTS.md` (docs versionadas de Expo v55).
+- Para compilar (APK debug, build local, EAS, publicar en stores), ver [`BUILD.md`](BUILD.md).
