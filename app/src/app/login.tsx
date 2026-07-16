@@ -1,15 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError } from '@/lib/api';
@@ -51,16 +42,14 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-[#2563eb]">
-      <KeyboardAvoidingView
-        className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      <ScrollView
+        contentContainerClassName="grow justify-center p-6"
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
+        showsVerticalScrollIndicator={false}
       >
-        <ScrollView
-          contentContainerClassName="grow justify-center p-6"
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Marca */}
-          <View className="mb-8 items-center">
+        {/* Marca */}
+        <View className="mb-8 items-center">
             <Text className="text-3xl font-extrabold text-white">IAAS Finanzas</Text>
             <Text className="mt-1 text-sm text-white/80">Tu tablero financiero personal</Text>
           </View>
@@ -130,8 +119,7 @@ export default function LoginScreen() {
               </Text>
             </Pressable>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </ScrollView>
     </SafeAreaView>
   );
 }
