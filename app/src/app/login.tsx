@@ -36,6 +36,7 @@ export default function LoginScreen() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -99,6 +100,10 @@ export default function LoginScreen() {
                 onChangeText={setName}
                 placeholder="Tu nombre"
                 autoCapitalize="words"
+                autoComplete="name"
+                textContentType="name"
+                autoCorrect={false}
+                returnKeyType="next"
               />
             )}
             <Field
@@ -107,15 +112,44 @@ export default function LoginScreen() {
               onChangeText={setEmail}
               placeholder="tucorreo@ejemplo.com"
               autoCapitalize="none"
+              autoCorrect={false}
               keyboardType="email-address"
+              inputMode="email"
+              autoComplete="email"
+              textContentType="emailAddress"
+              returnKeyType="next"
             />
-            <Field
-              label="Contraseña"
-              value={password}
-              onChangeText={setPassword}
-              placeholder="••••••••"
-              secureTextEntry
-            />
+
+            <View className="mb-4">
+              <Text className="mb-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                Contraseña
+              </Text>
+              <View className="flex-row items-center rounded-xl border border-slate-200 bg-slate-50 pr-1 dark:border-slate-600 dark:bg-slate-700">
+                <TextInput
+                  className="flex-1 px-4 py-3 text-base text-slate-800 dark:text-slate-100"
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="••••••••"
+                  placeholderTextColor="#94a3b8"
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete={isRegister ? 'new-password' : 'current-password'}
+                  textContentType={isRegister ? 'newPassword' : 'password'}
+                  returnKeyType="go"
+                  onSubmitEditing={submit}
+                />
+                <Pressable
+                  onPress={() => setShowPassword((s) => !s)}
+                  accessibilityRole="button"
+                  accessibilityLabel={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  hitSlop={8}
+                  className="h-10 w-10 items-center justify-center active:opacity-60"
+                >
+                  <Text className="text-lg">{showPassword ? '🙈' : '👁️'}</Text>
+                </Pressable>
+              </View>
+            </View>
 
             {error ? <Text className="mb-3 text-sm font-medium text-red-600">{error}</Text> : null}
 

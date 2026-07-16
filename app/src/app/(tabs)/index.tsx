@@ -103,8 +103,10 @@ export default function ObligacionesScreen() {
     return [
       { value: fmtShort(total, baseCurrency), label: `Total ${baseCurrency}` },
       {
-        value: String(obligations.length),
-        label: user?.isPro ? 'Total' : `Total/${MAX_FREE_OBLIGATIONS}`,
+        value: user?.isPro
+          ? String(obligations.length)
+          : `${obligations.length}/${MAX_FREE_OBLIGATIONS}`,
+        label: 'Total',
       },
       { value: String(paidCount), label: 'Pagadas', color: '#16a34a' },
       { value: String(partialCount), label: 'Parciales', color: partialCount ? '#ca8a04' : undefined },
