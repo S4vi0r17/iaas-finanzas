@@ -6,7 +6,7 @@ import {
   type PmType,
 } from '@iaas/shared';
 import { useEffect, useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, Text, TextInput, View } from 'react-native';
 
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { CategoriesSheet } from '@/components/CategoriesSheet';
@@ -65,7 +65,7 @@ function PmRow({ pm }: { pm: PaymentMethod }) {
 }
 
 export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { data } = usePaymentMethods();
   const updateUser = useUpdateUser();
   const createPm = useCreatePaymentMethod();
@@ -90,6 +90,20 @@ export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose:
   async function save() {
     if (name.trim() !== (user?.name ?? '')) await updateUser.mutateAsync({ name: name.trim() });
     onClose();
+  }
+
+  function confirmLogout() {
+    Alert.alert('Cerrar sesión', '¿Seguro que quieres cerrar sesión?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Cerrar sesión',
+        style: 'destructive',
+        onPress: () => {
+          onClose();
+          logout();
+        },
+      },
+    ]);
   }
 
   const pms = data?.paymentMethods ?? [];
@@ -180,6 +194,14 @@ export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose:
           </Text>
         </Pressable>
       </View>
+
+      {/* Cerrar sesión */}
+      <Pressable
+        onPress={confirmLogout}
+        className="mt-4 items-center rounded-xl border border-red-200 py-3 active:opacity-80 dark:border-red-900/60"
+      >
+        <Text className="font-semibold text-red-600 dark:text-red-400">Cerrar sesión</Text>
+      </Pressable>
     </BottomSheet>
   );
 }
