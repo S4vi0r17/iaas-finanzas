@@ -299,7 +299,7 @@ export default function ResumenScreen() {
               />
             ))}
             <Text className="mt-1 text-[11px] text-slate-400">
-              Saldo de obligaciones vigentes de {label} sin terminar de pagar.
+              Saldo de gastos fijos vigentes de {label} sin terminar de pagar.
             </Text>
           </Card>
         )}

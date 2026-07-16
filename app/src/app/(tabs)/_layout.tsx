@@ -19,6 +19,7 @@ export default function TabsLayout() {
       <Tabs
       screenOptions={{
         headerShown: false,
+        animation: 'shift',
         tabBarActiveTintColor: '#2563eb',
         tabBarInactiveTintColor: '#64748b',
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
@@ -27,7 +28,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Obligaciones',
+          title: 'Gastos fijos',
           tabBarIcon: ({ color }) => <TabIcon emoji="📋" color={color} />,
         }}
       />

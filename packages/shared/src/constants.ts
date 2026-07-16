@@ -108,7 +108,7 @@ export const CATEGORY_SCOPES = ["obligacion", "gasto", "ingreso"] as const;
 export type CategoryScope = (typeof CATEGORY_SCOPES)[number];
 
 export const CATEGORY_SCOPE_LABELS: Record<CategoryScope, string> = {
-  obligacion: "Obligaciones",
+  obligacion: "Gastos fijos",
   gasto: "Gastos",
   ingreso: "Ingresos",
 };

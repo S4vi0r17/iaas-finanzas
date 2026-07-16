@@ -106,7 +106,7 @@ export function ObligationForm({ visible, onClose, editing }: Props) {
       onClose();
     } catch (e: any) {
       if (e?.status === 403) {
-        Alert.alert('Límite alcanzado', 'El plan gratuito permite hasta 10 obligaciones.');
+        Alert.alert('Límite alcanzado', 'El plan gratuito permite hasta 10 gastos fijos.');
       } else {
         Alert.alert('Error', e?.message ?? 'No se pudo guardar');
       }
@@ -117,7 +117,7 @@ export function ObligationForm({ visible, onClose, editing }: Props) {
     <BottomSheet
       visible={visible}
       onClose={onClose}
-      title={editing ? 'Editar obligación' : 'Nueva obligación'}
+      title={editing ? 'Editar gasto fijo' : 'Nuevo gasto fijo'}
     >
       <View className="mb-3">
         <Text className="mb-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">Tipo</Text>

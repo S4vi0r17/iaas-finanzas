@@ -73,7 +73,7 @@ export function ObligationPaySheet({ visible, onClose, obligation }: Props) {
     if (parsedAmount > remaining)
       return Alert.alert(
         'Sobrepago',
-        `El pago no puede superar el saldo (${fmt(remaining, obligation!.moneda)}). Si el recibo subió, edita el monto de la obligación primero.`,
+        `El pago no puede superar el saldo (${fmt(remaining, obligation!.moneda)}). Si el recibo subió, edita el monto del gasto fijo primero.`,
       );
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return Alert.alert('Fecha inválida', 'Usa AAAA-MM-DD');
     try {

@@ -126,7 +126,7 @@ export default function ObligacionesScreen() {
   }, [reorderData, paidByObligation, search, filter, year, month]);
 
   function confirmDelete(id: string) {
-    Alert.alert('Eliminar', '¿Eliminar esta obligación?', [
+    Alert.alert('Eliminar', '¿Eliminar este gasto fijo?', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Eliminar', style: 'destructive', onPress: () => deleteObl.mutate(id) },
     ]);
@@ -134,7 +134,7 @@ export default function ObligacionesScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-slate-100 dark:bg-slate-900" edges={['top']}>
-      <AppHeader title="Obligaciones" />
+      <AppHeader title="Gastos fijos" />
 
       <ReorderableList
         data={list}
@@ -151,7 +151,7 @@ export default function ObligacionesScreen() {
               <TextInput
                 value={search}
                 onChangeText={setSearch}
-                placeholder="Buscar obligación..."
+                placeholder="Buscar gasto fijo..."
                 placeholderTextColor="#94a3b8"
                 className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
               />
@@ -217,7 +217,7 @@ export default function ObligacionesScreen() {
             <ActivityIndicator className="mt-10" color="#2563eb" />
           ) : (
             <Text className="mt-10 text-center text-slate-400">
-              No hay obligaciones que mostrar
+              No hay gastos fijos que mostrar
             </Text>
           )
         }
