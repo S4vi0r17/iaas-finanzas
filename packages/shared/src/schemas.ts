@@ -131,7 +131,6 @@ const obligationBase = z.object({
   mesFin: optionalMonth, // último mes en que aplica, o null = vigente
   monto: money,
   cat: shortText.default("Otro"),
-  catCustom: shortText.default(""),
   tipo: obligationType.default("gasto"),
   moneda: currencyCode,
   paymentMethodId: optionalRef,
@@ -157,7 +156,6 @@ export const expenseInput = z.object({
   descripcion: shortText.min(1, "Descripción requerida"),
   monto: money.gt(0, "Monto inválido"),
   cat: shortText.default("Otro"),
-  catCustom: shortText.default(""),
   paymentMethodId: optionalRef,
   obligationId: optionalRef,
   // Clasificación snapshot. Los gastos creados desde la app son "variable";
@@ -185,7 +183,6 @@ export const incomeInput = z.object({
   descripcion: shortText.min(1, "Descripción requerida"),
   monto: money.gt(0, "Monto inválido"),
   cat: shortText.default("Otro"),
-  catCustom: shortText.default(""),
   fecha: dateStr,
   moneda: currencyCode,
 });

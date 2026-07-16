@@ -25,7 +25,6 @@ export function ExpenseForm({ visible, onClose, editing }: Props) {
   const [monto, setMonto] = useState('');
   const [moneda, setMoneda] = useState(user?.currency ?? 'PEN');
   const [cat, setCat] = useState('Alimentacion');
-  const [catCustom, setCatCustom] = useState('');
   const [paymentMethodId, setPaymentMethodId] = useState('');
   const [fecha, setFecha] = useState(today());
 
@@ -36,7 +35,6 @@ export function ExpenseForm({ visible, onClose, editing }: Props) {
       setMonto(String(editing.monto));
       setMoneda(editing.moneda);
       setCat(editing.cat || 'Alimentacion');
-      setCatCustom(editing.catCustom);
       setPaymentMethodId(editing.paymentMethodId ?? '');
       setFecha(editing.fecha);
     } else {
@@ -44,7 +42,6 @@ export function ExpenseForm({ visible, onClose, editing }: Props) {
       setMonto('');
       setMoneda(user?.currency ?? 'PEN');
       setCat('Alimentacion');
-      setCatCustom('');
       setPaymentMethodId('');
       setFecha(today());
     }
@@ -69,7 +66,6 @@ export function ExpenseForm({ visible, onClose, editing }: Props) {
       descripcion: descripcion.trim(),
       monto: amount,
       cat,
-      catCustom: catCustom.trim(),
       paymentMethodId: paymentMethodId || null,
       obligationId: editing?.obligationId ?? null,
       tipo: editing?.tipo ?? 'variable',
@@ -110,12 +106,6 @@ export function ExpenseForm({ visible, onClose, editing }: Props) {
         </View>
       </View>
       <Picker label="Categoría" value={cat} options={categoryOptions(catData?.categories, cat)} onChange={setCat} />
-      <Field
-        label="O describe libremente"
-        value={catCustom}
-        onChangeText={setCatCustom}
-        placeholder="Opcional"
-      />
       <Picker label="Medio de pago" value={paymentMethodId} options={paymentMethodOptions} onChange={setPaymentMethodId} />
       <Field label="Fecha" value={fecha} onChangeText={setFecha} placeholder="AAAA-MM-DD" />
 

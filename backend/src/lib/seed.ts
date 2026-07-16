@@ -76,7 +76,6 @@ export function seedUserData(userId: string, opts: { wipeMovements?: boolean } =
         mesFin: null,
         monto: o.monto,
         cat: o.cat,
-        catCustom: o.catCustom,
         tipo: o.tipo,
         moneda: o.moneda,
         paymentMethodId: pmIdByKey.get(o.paymentMethodId) ?? null,

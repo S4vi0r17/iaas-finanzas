@@ -24,7 +24,6 @@ export function IncomeForm({ visible, onClose, editing }: Props) {
   const [monto, setMonto] = useState('');
   const [moneda, setMoneda] = useState(user?.currency ?? 'PEN');
   const [cat, setCat] = useState('Sueldo');
-  const [catCustom, setCatCustom] = useState('');
   const [fecha, setFecha] = useState(today());
 
   useEffect(() => {
@@ -34,14 +33,12 @@ export function IncomeForm({ visible, onClose, editing }: Props) {
       setMonto(String(editing.monto));
       setMoneda(editing.moneda);
       setCat(editing.cat || 'Sueldo');
-      setCatCustom(editing.catCustom);
       setFecha(editing.fecha);
     } else {
       setDescripcion('');
       setMonto('');
       setMoneda(user?.currency ?? 'PEN');
       setCat('Sueldo');
-      setCatCustom('');
       setFecha(today());
     }
   }, [visible, editing, user?.currency]);
@@ -56,7 +53,6 @@ export function IncomeForm({ visible, onClose, editing }: Props) {
       descripcion: descripcion.trim(),
       monto: m,
       cat,
-      catCustom: catCustom.trim(),
       fecha,
       moneda,
     };
@@ -94,12 +90,6 @@ export function IncomeForm({ visible, onClose, editing }: Props) {
         </View>
       </View>
       <Picker label="Categoría" value={cat} options={categoryOptions(catData?.categories, cat)} onChange={setCat} />
-      <Field
-        label="O categoría personalizada"
-        value={catCustom}
-        onChangeText={setCatCustom}
-        placeholder="Opcional"
-      />
       <Field label="Fecha" value={fecha} onChangeText={setFecha} placeholder="AAAA-MM-DD" />
 
       <View className="mt-2 flex-row gap-3">

@@ -44,7 +44,6 @@ export function ObligationForm({ visible, onClose, editing }: Props) {
   const [moneda, setMoneda] = useState(user?.currency ?? 'PEN');
   const [paymentMethodId, setPaymentMethodId] = useState('');
   const [cat, setCat] = useState('Otro');
-  const [catCustom, setCatCustom] = useState('');
 
   useEffect(() => {
     if (!visible) return;
@@ -58,7 +57,6 @@ export function ObligationForm({ visible, onClose, editing }: Props) {
       setMoneda(editing.moneda);
       setPaymentMethodId(editing.paymentMethodId ?? '');
       setCat(editing.cat || 'Otro');
-      setCatCustom(editing.catCustom);
     } else {
       setTipo('gasto');
       setNombre('');
@@ -69,7 +67,6 @@ export function ObligationForm({ visible, onClose, editing }: Props) {
       setMoneda(user?.currency ?? 'PEN');
       setPaymentMethodId('');
       setCat('Otro');
-      setCatCustom('');
     }
   }, [visible, editing, user?.currency]);
 
@@ -99,7 +96,6 @@ export function ObligationForm({ visible, onClose, editing }: Props) {
       mesFin: mesFin || null,
       monto: parseFloat(monto) || 0,
       cat,
-      catCustom: catCustom.trim(),
       tipo,
       moneda,
       paymentMethodId: paymentMethodId || null,
@@ -195,12 +191,6 @@ export function ObligationForm({ visible, onClose, editing }: Props) {
         onChange={setPaymentMethodId}
       />
       <Picker label="Categoría" value={cat} options={categoryOptions(catData?.categories, cat)} onChange={setCat} />
-      <Field
-        label="O categoría personalizada"
-        value={catCustom}
-        onChangeText={setCatCustom}
-        placeholder="Opcional"
-      />
 
       <View className="mt-2 flex-row gap-3">
         <Pressable

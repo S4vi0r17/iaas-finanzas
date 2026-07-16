@@ -13,7 +13,6 @@ function toExpense(row: typeof expenses.$inferSelect): Expense {
     descripcion: row.descripcion,
     monto: row.monto,
     cat: row.cat,
-    catCustom: row.catCustom,
     paymentMethodId: row.paymentMethodId,
     obligationId: row.obligationId,
     tipo: row.tipo as Expense["tipo"],

@@ -91,7 +91,7 @@ export default function IngresosScreen() {
 }
 
 function ItemRow({ item, onEdit, onDelete }: { item: Income; onEdit: () => void; onDelete: () => void }) {
-  const cat = item.catCustom?.trim() ? item.catCustom.trim() : item.cat;
+  const cat = item.cat;
   return (
     <View
       className="mx-4 mb-1.5 flex-row items-center gap-3 rounded-xl bg-white p-3 dark:bg-slate-800"

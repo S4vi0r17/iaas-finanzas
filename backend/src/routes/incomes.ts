@@ -13,7 +13,6 @@ function toIncome(row: typeof incomes.$inferSelect): Income {
     descripcion: row.descripcion,
     monto: row.monto,
     cat: row.cat,
-    catCustom: row.catCustom,
     fecha: row.fecha,
     moneda: row.moneda,
   };

@@ -118,7 +118,7 @@ export default function ResumenScreen() {
             categories: {},
           };
         }
-        const category = expense.catCustom?.trim() || expense.cat || 'Otro';
+        const category = expense.cat || 'Otro';
         const stat = statsByPaymentMethod[key];
         stat.total += expense.monto;
         stat.count++;
@@ -132,7 +132,7 @@ export default function ResumenScreen() {
     incomes
       .filter((income) => income.moneda === baseCurrency)
       .forEach((income) => {
-        const category = income.catCustom?.trim() || income.cat;
+        const category = income.cat;
         incomeByCategory[category] = (incomeByCategory[category] || 0) + income.monto;
       });
 
