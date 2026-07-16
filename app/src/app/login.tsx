@@ -1,6 +1,16 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError } from '@/lib/api';
@@ -9,6 +19,18 @@ import { useAuth } from '@/lib/auth';
 export default function LoginScreen() {
   const router = useRouter();
   const { login, register } = useAuth();
+
+  // Con el teclado abierto alineamos el contenido arriba (en vez de centrado)
+  // para que inputs y botón suban por encima del teclado en vez de quedar tapados.
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', () => setKeyboardOpen(true));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardOpen(false));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [name, setName] = useState('');
@@ -42,14 +64,21 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-[#2563eb]">
-      <ScrollView
-        contentContainerClassName="grow justify-center p-6"
-        keyboardShouldPersistTaps="handled"
-        automaticallyAdjustKeyboardInsets
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {/* Marca */}
-        <View className="mb-8 items-center">
+        <ScrollView
+          contentContainerStyle={{
+            flexGrow: 1,
+            justifyContent: keyboardOpen ? 'flex-start' : 'center',
+            padding: 24,
+          }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Marca */}
+          <View className="mb-8 items-center">
             <Text className="text-3xl font-extrabold text-white">IAAS Finanzas</Text>
             <Text className="mt-1 text-sm text-white/80">Tu tablero financiero personal</Text>
           </View>
@@ -119,7 +148,8 @@ export default function LoginScreen() {
               </Text>
             </Pressable>
           </View>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
