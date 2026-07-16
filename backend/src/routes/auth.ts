@@ -6,6 +6,7 @@ import { db } from "../db/client";
 import { users } from "../db/schema";
 import { hashPassword, signToken, verifyPassword } from "../lib/auth";
 import { parseBody } from "../lib/http";
+import { seedDefaultCategories } from "../lib/seed";
 
 export function toProfile(row: typeof users.$inferSelect): UserProfile {
   return {
@@ -30,8 +31,10 @@ authRoutes.post("/register", async (c) => {
   const id = randomUUID();
   const passwordHash = await hashPassword(password);
   db.insert(users).values({ id, email, passwordHash, name }).run();
-  // El usuario arranca vacío (sin obligaciones ni medios de pago).
+  // El usuario arranca sin obligaciones ni medios de pago (los crea él).
+  // Sí sembramos unas categorías mínimas para que los selectores funcionen.
   // Para cargar datos de ejemplo en desarrollo: POST /api/seed
+  seedDefaultCategories(id);
 
   const row = db.select().from(users).where(eq(users.id, id)).get()!;
   const token = await signToken(id);

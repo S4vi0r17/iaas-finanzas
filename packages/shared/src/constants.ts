@@ -102,6 +102,41 @@ export const INCOME_CATEGORIES = [
   "Sueldo", "Alquiler", "Consultoria", "Freelance", "Dividendos", "Bono", "Otro ingreso",
 ] as const;
 
+// ─── Categorías gestionables (CRUD por usuario) ───────────────────────
+// Ámbito de una categoría: cada formulario ofrece solo las de su scope.
+export const CATEGORY_SCOPES = ["obligacion", "gasto", "ingreso"] as const;
+export type CategoryScope = (typeof CATEGORY_SCOPES)[number];
+
+export const CATEGORY_SCOPE_LABELS: Record<CategoryScope, string> = {
+  obligacion: "Obligaciones",
+  gasto: "Gastos",
+  ingreso: "Ingresos",
+};
+
+/** Icono por defecto cuando una categoría no define uno propio. */
+export const DEFAULT_CATEGORY_ICON = "📋";
+
+/**
+ * Semilla minimalista de categorías al registrarse: solo lo esencial para que
+ * los selectores funcionen. El usuario agrega las suyas desde el gestor.
+ */
+export const DEFAULT_CATEGORIES: ReadonlyArray<{
+  scope: CategoryScope;
+  name: string;
+  icon: string;
+}> = [
+  { scope: "obligacion", name: "Servicio", icon: "⚡" },
+  { scope: "obligacion", name: "Tarjeta", icon: "💳" },
+  { scope: "obligacion", name: "Prestamo", icon: "💰" },
+  { scope: "obligacion", name: "Otro", icon: DEFAULT_CATEGORY_ICON },
+  { scope: "gasto", name: "Alimentacion", icon: "🍽" },
+  { scope: "gasto", name: "Transporte", icon: "🚗" },
+  { scope: "gasto", name: "Hogar", icon: "🏠" },
+  { scope: "gasto", name: "Otro", icon: DEFAULT_CATEGORY_ICON },
+  { scope: "ingreso", name: "Sueldo", icon: "💵" },
+  { scope: "ingreso", name: "Otro ingreso", icon: DEFAULT_CATEGORY_ICON },
+];
+
 export const OBLIGATION_TYPES = ["gasto", "inversion"] as const;
 export type ObligationType = (typeof OBLIGATION_TYPES)[number];
 

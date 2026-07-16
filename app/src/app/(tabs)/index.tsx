@@ -1,18 +1,29 @@
 import {
+  DEFAULT_CATEGORY_ICON,
   MAX_FREE_OBLIGATIONS,
-  OBLIGATION_CATEGORY_ICONS,
   PM_ICONS,
   type Obligation,
 } from '@iaas/shared';
-import { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, Text, TextInput, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, Text, TextInput, View } from 'react-native';
+import ReorderableList, {
+  reorderItems,
+  useReorderableDrag,
+  type ReorderableListReorderEvent,
+} from 'react-native-reorderable-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ObligationForm } from '@/components/ObligationForm';
 import { ObligationPaySheet } from '@/components/ObligationPaySheet';
 import { AppHeader } from '@/components/ui/AppHeader';
 import { Metrics, type Metric } from '@/components/ui/Metrics';
-import { useDeleteObligation, useObligations, usePaymentMethods } from '@/hooks/queries';
+import {
+  useCategories,
+  useDeleteObligation,
+  useObligations,
+  usePaymentMethods,
+  useReorderObligations,
+} from '@/hooks/queries';
 import { useMonth } from '@/hooks/useMonth';
 import { useAuth } from '@/lib/auth';
 import { fmt, fmtShort } from '@/lib/format';
@@ -31,7 +42,16 @@ export default function ObligacionesScreen() {
   const { monthKey, year, month } = useMonth();
   const { data, isLoading } = useObligations(monthKey);
   const { data: pmData } = usePaymentMethods();
+  const { data: catData } = useCategories('obligacion');
   const deleteObl = useDeleteObligation();
+  const reorder = useReorderObligations();
+
+  // Mapa nombre-de-categoría → icono, para las tarjetas.
+  const iconByCat = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const c of catData?.categories ?? []) map[c.name] = c.icon || DEFAULT_CATEGORY_ICON;
+    return map;
+  }, [catData]);
 
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('');
@@ -43,6 +63,25 @@ export default function ObligacionesScreen() {
   const obligations = data?.obligations ?? [];
   const paidByObligation = data?.paidByObligation ?? {};
   const paidFor = (id: string) => paidByObligation[id] ?? 0;
+
+  // Orden local para el drag & drop. Se resincroniza cuando cambia el conjunto
+  // (o el orden) que devuelve el servidor; así el reordenamiento optimista no
+  // "salta" tras persistir. `orderSig` evita bucles al depender del array.
+  const [reorderData, setReorderData] = useState<Obligation[]>(obligations);
+  const orderSig = obligations.map((o) => o.id).join(',');
+  useEffect(() => {
+    setReorderData(data?.obligations ?? []);
+  }, [orderSig]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Arrastrar solo tiene sentido con la lista completa: si hay búsqueda o filtro
+  // activos, el orden sería parcial. En ese caso se desactiva el drag.
+  const canReorder = !search.trim() && !filter;
+
+  function handleReorder({ from, to }: ReorderableListReorderEvent) {
+    const next = reorderItems(reorderData, from, to);
+    setReorderData(next); // optimista
+    reorder.mutate(next.map((o) => o.id));
+  }
 
   function paymentMethodLabel(id: string | null) {
     const paymentMethod = pmData?.paymentMethods.find((method) => method.id === id);
@@ -75,7 +114,7 @@ export default function ObligacionesScreen() {
 
   const list = useMemo(() => {
     const query = search.toLowerCase();
-    return obligations.filter((obligation) => {
+    return reorderData.filter((obligation) => {
       const status = computeStatus(obligation, paidFor(obligation.id), year, month).label;
       const matchFilter =
         !filter ||
@@ -84,7 +123,7 @@ export default function ObligacionesScreen() {
       const matchSearch = !query || obligation.nombre.toLowerCase().includes(query);
       return matchFilter && matchSearch;
     });
-  }, [obligations, paidByObligation, search, filter, year, month]);
+  }, [reorderData, paidByObligation, search, filter, year, month]);
 
   function confirmDelete(id: string) {
     Alert.alert('Eliminar', '¿Eliminar esta obligación?', [
@@ -97,10 +136,12 @@ export default function ObligacionesScreen() {
     <SafeAreaView className="flex-1 bg-slate-100 dark:bg-slate-900" edges={['top']}>
       <AppHeader title="Obligaciones" />
 
-      <FlatList
+      <ReorderableList
         data={list}
         keyExtractor={(o) => o.id}
-        contentContainerClassName="pb-6"
+        contentContainerStyle={{ paddingBottom: 24 }}
+        dragEnabled={canReorder}
+        onReorder={handleReorder}
         ListHeaderComponent={
           <View>
             <Metrics items={metrics} />
@@ -145,14 +186,22 @@ export default function ObligacionesScreen() {
                 </Pressable>
               ))}
             </View>
+
+            {canReorder && list.length > 1 ? (
+              <Text className="px-4 pb-2 text-[11px] text-slate-400">
+                Mantén pulsado ≡ y arrastra para reordenar
+              </Text>
+            ) : null}
           </View>
         }
         renderItem={({ item }) => (
-          <ObligationCard
+          <DraggableObligationCard
+            canReorder={canReorder}
             obligation={item}
             paidAmount={paidFor(item.id)}
             year={year}
             month={month}
+            categoryIcon={iconByCat[item.cat] ?? DEFAULT_CATEGORY_ICON}
             paymentMethodLabel={paymentMethodLabel(item.paymentMethodId)}
             baseCurrency={baseCurrency}
             onEdit={() => {
@@ -184,29 +233,43 @@ export default function ObligacionesScreen() {
   );
 }
 
-function ObligationCard({
-  obligation,
-  paidAmount,
-  year,
-  month,
-  paymentMethodLabel,
-  baseCurrency,
-  onEdit,
-  onDelete,
-  onPay,
-}: {
+type ObligationCardProps = {
   obligation: Obligation;
   paidAmount: number;
   year: number;
   month: number;
+  categoryIcon: string;
   paymentMethodLabel: string;
   baseCurrency: string;
   onEdit: () => void;
   onDelete: () => void;
   onPay: () => void;
-}) {
+};
+
+/** Envuelve la tarjeta para exponer el gesto de arrastre desde el handle ≡. */
+function DraggableObligationCard({
+  canReorder,
+  ...props
+}: ObligationCardProps & { canReorder: boolean }) {
+  const drag = useReorderableDrag();
+  return <ObligationCard {...props} dragHandle={canReorder ? drag : undefined} />;
+}
+
+function ObligationCard({
+  obligation,
+  paidAmount,
+  year,
+  month,
+  categoryIcon,
+  paymentMethodLabel,
+  baseCurrency,
+  onEdit,
+  onDelete,
+  onPay,
+  dragHandle,
+}: ObligationCardProps & { dragHandle?: () => void }) {
   const status = computeStatus(obligation, paidAmount, year, month);
-  const icon = OBLIGATION_CATEGORY_ICONS[obligation.cat] ?? '📋';
+  const icon = categoryIcon;
   const dateLabel = `Día ${obligation.dia}`;
   const showCurrency = obligation.moneda !== baseCurrency;
   const fullyPaid = status.label === 'Pagado';
@@ -271,6 +334,15 @@ function ObligationCard({
         </Pressable>
         <ActionBtn label="✎" onPress={onEdit} />
         <ActionBtn label="🗑" onPress={onDelete} />
+        {dragHandle ? (
+          <Pressable
+            onLongPress={dragHandle}
+            delayLongPress={150}
+            className="h-8 w-9 items-center justify-center rounded-lg border border-slate-200 dark:border-slate-600"
+          >
+            <Text style={{ color: '#94a3b8' }}>≡</Text>
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );

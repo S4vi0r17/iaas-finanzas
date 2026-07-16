@@ -1,4 +1,7 @@
 import type {
+  Category,
+  CategoryScope,
+  CreateCategoryInput,
   CreatePaymentMethodInput,
   Expense,
   ExpenseInput,
@@ -8,6 +11,7 @@ import type {
   ObligationInput,
   PayObligationInput,
   PaymentMethod,
+  UpdateCategoryInput,
   UpdatePaymentMethodInput,
   UpdateUserInput,
   UserProfile,
@@ -183,6 +187,40 @@ export function useUpdatePaymentMethod() {
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['payment-methods'] });
+      qc.invalidateQueries({ queryKey: ['obligations'] });
+    },
+  });
+}
+
+// ─── Categorías ───────────────────────────────────────────────────────
+// Catálogo editable por usuario, filtrado por scope (obligacion|gasto|ingreso).
+export function useCategories(scope?: CategoryScope) {
+  return useQuery({
+    queryKey: ['categories', scope ?? 'all'],
+    queryFn: () =>
+      apiFetch<{ categories: Category[] }>(
+        scope ? `/api/categories?scope=${scope}` : '/api/categories',
+      ),
+  });
+}
+
+export function useCreateCategory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreateCategoryInput) =>
+      apiFetch<{ category: Category }>('/api/categories', { method: 'POST', body }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['categories'] }),
+  });
+}
+
+export function useUpdateCategory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: UpdateCategoryInput & { id: string }) =>
+      apiFetch<{ category: Category }>(`/api/categories/${id}`, { method: 'PATCH', body }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['categories'] });
+      // Los iconos de las tarjetas de obligación se leen de las categorías.
       qc.invalidateQueries({ queryKey: ['obligations'] });
     },
   });

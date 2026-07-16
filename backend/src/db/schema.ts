@@ -32,6 +32,28 @@ export const paymentMethods = sqliteTable(
   }),
 );
 
+// ─── Categorías (catálogo editable por usuario, por ámbito) ───────────
+// scope: obligacion | gasto | ingreso. Soft-delete vía `active` (igual que
+// payment_methods): al desactivar sale del selector pero los registros
+// históricos conservan su string `cat`, que no es FK.
+export const categories = sqliteTable(
+  "categories",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    scope: text("scope").notNull(), // obligacion | gasto | ingreso
+    name: text("name").notNull(),
+    icon: text("icon").notNull().default(""),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (t) => ({
+    byUserScope: index("cat_user_scope").on(t.userId, t.scope),
+  }),
+);
+
 // ─── Obligaciones (pagos recurrentes) ─────────────────────────────────
 export const obligations = sqliteTable(
   "obligations",

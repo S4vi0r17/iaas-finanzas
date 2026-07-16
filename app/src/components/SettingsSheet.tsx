@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { BottomSheet } from '@/components/ui/BottomSheet';
+import { CategoriesSheet } from '@/components/CategoriesSheet';
 import { Field } from '@/components/ui/Field';
 import { useAuth } from '@/lib/auth';
 import {
@@ -72,6 +73,7 @@ export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose:
   const [name, setName] = useState('');
   const [newName, setNewName] = useState('');
   const [newType, setNewType] = useState<PmType>('credito');
+  const [catsOpen, setCatsOpen] = useState(false);
 
   useEffect(() => {
     if (visible) setName(user?.name ?? '');
@@ -150,6 +152,16 @@ export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose:
           </Pressable>
         </View>
       </View>
+
+      {/* Gestor de categorías */}
+      <Pressable
+        onPress={() => setCatsOpen(true)}
+        className="mt-3 flex-row items-center justify-between rounded-xl border border-slate-200 px-4 py-3 active:opacity-80 dark:border-slate-600"
+      >
+        <Text className="font-semibold text-slate-700 dark:text-slate-200">🏷 Mis categorías</Text>
+        <Text className="text-slate-400">›</Text>
+      </Pressable>
+      <CategoriesSheet visible={catsOpen} onClose={() => setCatsOpen(false)} />
 
       <View className="mt-3 flex-row gap-3">
         <Pressable

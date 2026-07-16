@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CURRENCY_CODES, EXPENSE_KINDS, OBLIGATION_TYPES, PM_TYPES } from "./constants";
+import { CATEGORY_SCOPES, CURRENCY_CODES, EXPENSE_KINDS, OBLIGATION_TYPES, PM_TYPES } from "./constants";
 
 // ─── Primitivos reutilizables ─────────────────────────────────────────
 export const monthKey = z
@@ -17,6 +17,9 @@ export const currencyCode = z
 export const pmType = z.enum(PM_TYPES);
 export const obligationType = z.enum(OBLIGATION_TYPES);
 export const expenseKind = z.enum(EXPENSE_KINDS);
+export const categoryScope = z.enum(CATEGORY_SCOPES);
+/** Emoji corto para el icono de una categoría. */
+const iconStr = z.string().trim().max(8);
 
 const money = z.number().min(0, "El monto no puede ser negativo");
 const shortText = z.string().trim().max(120);
@@ -89,6 +92,33 @@ export const updatePaymentMethodInput = z
   .object({
     name: shortText.min(1),
     type: pmType,
+    active: z.boolean(),
+  })
+  .partial();
+
+// ─── Categorías ───────────────────────────────────────────────────────
+export const category = z.object({
+  id: z.string(),
+  scope: categoryScope,
+  name: shortText.min(1),
+  icon: z.string(),
+  active: z.boolean(),
+  sortOrder: z.number().int(),
+});
+
+/** Crear una categoría desde el gestor. */
+export const createCategoryInput = z.object({
+  scope: categoryScope,
+  name: shortText.min(1),
+  icon: iconStr.default(""),
+  active: z.boolean().default(true),
+});
+
+/** Editar una categoría existente (todos los campos opcionales). */
+export const updateCategoryInput = z
+  .object({
+    name: shortText.min(1),
+    icon: iconStr,
     active: z.boolean(),
   })
   .partial();
@@ -170,6 +200,9 @@ export type UpdateUserInput = z.infer<typeof updateUserInput>;
 export type PaymentMethod = z.infer<typeof paymentMethod>;
 export type CreatePaymentMethodInput = z.infer<typeof createPaymentMethodInput>;
 export type UpdatePaymentMethodInput = z.infer<typeof updatePaymentMethodInput>;
+export type Category = z.infer<typeof category>;
+export type CreateCategoryInput = z.infer<typeof createCategoryInput>;
+export type UpdateCategoryInput = z.infer<typeof updateCategoryInput>;
 export type ObligationInput = z.infer<typeof obligationInput>;
 export type Obligation = z.infer<typeof obligation>;
 export type ReorderObligationsInput = z.infer<typeof reorderObligationsInput>;

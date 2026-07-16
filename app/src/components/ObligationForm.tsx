@@ -1,6 +1,5 @@
 import {
   CURRENCIES,
-  OBLIGATION_CATEGORIES,
   PM_ICONS,
   type Obligation,
   type ObligationInput,
@@ -12,11 +11,11 @@ import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Field } from '@/components/ui/Field';
 import { Picker, type Option } from '@/components/ui/Picker';
 import { Segmented } from '@/components/ui/Segmented';
-import { usePaymentMethods, useSaveObligation } from '@/hooks/queries';
+import { useCategories, usePaymentMethods, useSaveObligation } from '@/hooks/queries';
 import { useAuth } from '@/lib/auth';
+import { categoryOptions } from '@/lib/categories';
 
 const CURRENCY_OPTIONS: Option[] = CURRENCIES.map((c) => ({ value: c.c, label: `${c.s} ${c.c}` }));
-const CATEGORY_OPTIONS: Option[] = OBLIGATION_CATEGORIES.map((c) => ({ value: c, label: c }));
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 function currentMonth() {
@@ -33,6 +32,7 @@ type Props = {
 export function ObligationForm({ visible, onClose, editing }: Props) {
   const { user } = useAuth();
   const { data: pmData } = usePaymentMethods();
+  const { data: catData } = useCategories('obligacion');
   const save = useSaveObligation();
 
   const [tipo, setTipo] = useState<'gasto' | 'inversion'>('gasto');
@@ -194,7 +194,7 @@ export function ObligationForm({ visible, onClose, editing }: Props) {
         options={pmOptions}
         onChange={setPaymentMethodId}
       />
-      <Picker label="Categoría" value={cat} options={CATEGORY_OPTIONS} onChange={setCat} />
+      <Picker label="Categoría" value={cat} options={categoryOptions(catData?.categories, cat)} onChange={setCat} />
       <Field
         label="O categoría personalizada"
         value={catCustom}

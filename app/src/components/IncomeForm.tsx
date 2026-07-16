@@ -1,21 +1,22 @@
-import { CURRENCIES, INCOME_CATEGORIES, type Income, type IncomeInput } from '@iaas/shared';
+import { CURRENCIES, type Income, type IncomeInput } from '@iaas/shared';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Field } from '@/components/ui/Field';
 import { Picker, type Option } from '@/components/ui/Picker';
-import { useCreateIncome, useUpdateIncome } from '@/hooks/queries';
+import { useCategories, useCreateIncome, useUpdateIncome } from '@/hooks/queries';
 import { useAuth } from '@/lib/auth';
+import { categoryOptions } from '@/lib/categories';
 import { today } from '@/lib/format';
 
 const CURRENCY_OPTIONS: Option[] = CURRENCIES.map((c) => ({ value: c.c, label: `${c.s} ${c.c}` }));
-const CATEGORY_OPTIONS: Option[] = INCOME_CATEGORIES.map((c) => ({ value: c, label: c }));
 
 type Props = { visible: boolean; onClose: () => void; editing?: Income | null };
 
 export function IncomeForm({ visible, onClose, editing }: Props) {
   const { user } = useAuth();
+  const { data: catData } = useCategories('ingreso');
   const create = useCreateIncome();
   const update = useUpdateIncome();
 
@@ -92,7 +93,7 @@ export function IncomeForm({ visible, onClose, editing }: Props) {
           <Picker label="Moneda" value={moneda} options={CURRENCY_OPTIONS} onChange={setMoneda} />
         </View>
       </View>
-      <Picker label="Categoría" value={cat} options={CATEGORY_OPTIONS} onChange={setCat} />
+      <Picker label="Categoría" value={cat} options={categoryOptions(catData?.categories, cat)} onChange={setCat} />
       <Field
         label="O categoría personalizada"
         value={catCustom}
