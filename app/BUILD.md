@@ -78,3 +78,11 @@ configurada (Google Play Console / Apple Developer) enlazada en `eas.json`.
 | Solo el archivo `.apk` standalone             | `cd android && ./gradlew assembleRelease` |
 | Build firmado para publicar (Android/iOS)     | `bun run build:android` / `build:ios` |
 | Subir a Play Store / App Store                | `bun run submit:android` / `submit:ios` |
+
+## RAA
+
+```bash
+cd android
+./gradlew clean
+./gradlew assembleRelease
+```
