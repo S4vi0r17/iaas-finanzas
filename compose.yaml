@@ -10,12 +10,15 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"
+    # NODE_ENV, PORT, JWT_SECRET y ENABLE_DEV_SEED salen de backend/.env: un solo
+    # lugar para editarlos. DATABASE_URL es la excepción obligada: backend/.env
+    # apunta a `localhost` (para cuando corrés el backend con `bun run dev` en tu
+    # máquina), pero acá adentro del contenedor eso resolvería al propio
+    # contenedor, no a MySQL — tiene que ser el nombre del servicio (`db`).
+    env_file:
+      - backend/.env
     environment:
-      NODE_ENV: development
-      PORT: "3000"
       DATABASE_URL: mysql://root:root@db:3306/iaas
-      JWT_SECRET: dev-insecure-secret-change-me
-      ENABLE_DEV_SEED: "true"
     depends_on:
       db:
         condition: service_healthy
