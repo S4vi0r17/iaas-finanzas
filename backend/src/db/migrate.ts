@@ -1,5 +1,6 @@
 // Aplica migraciones manualmente: bun run db:migrate
-import { runMigrations } from "./client";
+import { pool, runMigrations } from "./client";
 
-runMigrations();
+await runMigrations();
 console.log("Migraciones aplicadas ✓");
+await pool.end();

@@ -5,7 +5,7 @@ Estado y tareas para continuar el desarrollo.
 ## Estado actual
 
 Fase 1 (nucleo) completa, con el modelo de datos ya mejorado por encima del HTML de referencia:
-- Backend Bun + Hono + Drizzle + SQLite, con JWT, CRUD y seed por usuario. Dockerizado.
+- Backend Bun + Hono + Drizzle + MySQL, con JWT, CRUD y seed por usuario. Dockerizado.
 - App Expo SDK 55 + NativeWind + TanStack Query.
 - 4 pantallas conectadas al backend: Obligaciones, Gastos, Ingresos, Resumen.
 - Multi-moneda, medios de pago (CRUD individual), navegacion por mes, ajustes, login persistido.
@@ -109,13 +109,14 @@ Estado actual del CRUD por recurso:
 
 - Monorepo Bun. Requiere `bunfig.toml` con `linker = "hoisted"` (si no, Metro/Babel fallan al resolver plugins).
 - URL del backend en la app: variable EXPO_PUBLIC_API_URL en app/.env. En dispositivo fisico usar la IP LAN de la PC, no localhost. Reiniciar Expo con `bunx expo start -c` tras cambiarla.
-- Backend local: `cd backend && JWT_SECRET=dev DB_PATH=./data/dev.sqlite bun run dev`.
+- Backend local: `cd backend && JWT_SECRET=dev DATABASE_URL=mysql://root:root@localhost:3306/iaas bun run dev`
+  (MySQL local: `docker run -d --name iaas-mysql -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=iaas -p 3306:3306 mysql:8`).
 - App: `cd app && bunx expo start`.
-- Deploy backend en Dokploy con el Dockerfile de la raiz. El SQLite va en volumen persistente (/app/data).
+- Deploy backend en Dokploy con el Dockerfile de la raiz. La base MySQL se crea aparte con el
+  "database creator" de Dokploy (su propio volumen persistente) y se referencia con `DATABASE_URL`;
+  asi el redeploy del API nunca toca los datos.
 - Migraciones: `runMigrations()` corre al arrancar (backend/src/db/client.ts), asi que desplegar
-  = reiniciar el contenedor y aplica lo pendiente. La migracion `0001` agrega `expenses.tipo`
-  (default 'variable') y hace backfill de los gastos ya ligados (fijo/inversion segun la obligacion).
-  El volumen persistente conserva la DB, asi que el ALTER TABLE corre una sola vez sobre la prod.
+  = reiniciar el contenedor y aplica lo pendiente.
 - Integridad referencial: obligations.payment_method_id, expenses.payment_method_id y
   expenses.obligation_id son FK reales (convencion tabla_id) con ON DELETE SET NULL.
   NULL = "sin asignar" (ya no se usa "" para eso). El input Zod convierte ""/ausente -> null.

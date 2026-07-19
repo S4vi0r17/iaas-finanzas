@@ -1,33 +1,12 @@
 {
   "version": "7",
-  "dialect": "sqlite",
+  "dialect": "mysql",
   "entries": [
     {
       "idx": 0,
-      "version": "6",
-      "when": 1783045440272,
-      "tag": "0000_fuzzy_preak",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1783139516785,
-      "tag": "0001_nappy_tana_nile",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1784164778451,
-      "tag": "0002_nice_loa",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1784172707278,
-      "tag": "0003_sloppy_adam_destine",
+      "version": "5",
+      "when": 1784504299250,
+      "tag": "0000_futuristic_prowler",
       "breakpoints": true
     }
   ]

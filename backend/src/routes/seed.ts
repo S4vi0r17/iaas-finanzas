@@ -11,6 +11,6 @@ seedRoutes.post("/", async (c) => {
     return c.json({ error: "Seed deshabilitado" }, 403);
   }
   const wipeMovements = c.req.query("wipe") === "true";
-  const result = seedUserData(c.get("userId"), { wipeMovements });
+  const result = await seedUserData(c.get("userId"), { wipeMovements });
   return c.json({ ok: true, seeded: result, wipedMovements: wipeMovements });
 });

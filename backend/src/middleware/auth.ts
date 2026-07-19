@@ -23,7 +23,7 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
   const userId = await verifyToken(token);
   if (!userId) return c.json({ error: "Token inválido o expirado" }, 401);
 
-  const exists = db.select({ id: users.id }).from(users).where(eq(users.id, userId)).get();
+  const [exists] = await db.select({ id: users.id }).from(users).where(eq(users.id, userId));
   if (!exists) return c.json({ error: "Sesión inválida" }, 401);
 
   c.set("userId", userId);

@@ -1,5 +1,6 @@
 # Para Dokploy: apunta a este compose (o al Dockerfile de la raíz).
-# El volumen `iaas_data` conserva el SQLite entre redeploys.
+# La base MySQL vive aparte (créala con el "database creator" de Dokploy) y
+# se referencia acá vía DATABASE_URL: así el redeploy del API nunca la toca.
 services:
   api:
     build:
@@ -11,16 +12,12 @@ services:
     environment:
       NODE_ENV: production
       PORT: "3000"
-      DB_PATH: /app/data/iaas.sqlite
+      # Cadena de conexión de la base MySQL creada en Dokploy.
+      DATABASE_URL: ${DATABASE_URL:?define DATABASE_URL}
       # ¡Cámbialo en Dokploy! openssl rand -base64 48
       JWT_SECRET: ${JWT_SECRET:?define JWT_SECRET}
-    volumes:
-      - iaas_data:/app/data
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
       interval: 30s
       timeout: 5s
       retries: 3
-
-volumes:
-  iaas_data:

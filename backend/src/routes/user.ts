@@ -9,8 +9,8 @@ import { toProfile } from "./auth";
 
 export const userRoutes = new Hono<AuthEnv>();
 
-userRoutes.get("/me", (c) => {
-  const row = db.select().from(users).where(eq(users.id, c.get("userId"))).get();
+userRoutes.get("/me", async (c) => {
+  const [row] = await db.select().from(users).where(eq(users.id, c.get("userId")));
   if (!row) return c.json({ error: "Usuario no encontrado" }, 404);
   return c.json({ user: toProfile(row) });
 });
@@ -18,8 +18,8 @@ userRoutes.get("/me", (c) => {
 userRoutes.patch("/me", async (c) => {
   const patch = await parseBody(c, updateUserInput);
   if (Object.keys(patch).length > 0) {
-    db.update(users).set(patch).where(eq(users.id, c.get("userId"))).run();
+    await db.update(users).set(patch).where(eq(users.id, c.get("userId")));
   }
-  const row = db.select().from(users).where(eq(users.id, c.get("userId"))).get()!;
+  const [row] = await db.select().from(users).where(eq(users.id, c.get("userId")));
   return c.json({ user: toProfile(row) });
 });

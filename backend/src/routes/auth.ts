@@ -25,18 +25,18 @@ export const authRoutes = new Hono();
 authRoutes.post("/register", async (c) => {
   const { email, password, name } = await parseBody(c, registerInput);
 
-  const existing = db.select().from(users).where(eq(users.email, email)).get();
+  const [existing] = await db.select().from(users).where(eq(users.email, email));
   if (existing) return c.json({ error: "Ese email ya está registrado" }, 409);
 
   const id = randomUUID();
   const passwordHash = await hashPassword(password);
-  db.insert(users).values({ id, email, passwordHash, name }).run();
+  await db.insert(users).values({ id, email, passwordHash, name });
   // El usuario arranca sin obligaciones ni medios de pago (los crea él).
   // Sí sembramos unas categorías mínimas para que los selectores funcionen.
   // Para cargar datos de ejemplo en desarrollo: POST /api/seed
-  seedDefaultCategories(id);
+  await seedDefaultCategories(id);
 
-  const row = db.select().from(users).where(eq(users.id, id)).get()!;
+  const [row] = await db.select().from(users).where(eq(users.id, id));
   const token = await signToken(id);
   return c.json({ token, user: toProfile(row) }, 201);
 });
@@ -44,7 +44,7 @@ authRoutes.post("/register", async (c) => {
 authRoutes.post("/login", async (c) => {
   const { email, password } = await parseBody(c, loginInput);
 
-  const row = db.select().from(users).where(eq(users.email, email)).get();
+  const [row] = await db.select().from(users).where(eq(users.email, email));
   if (!row || !(await verifyPassword(password, row.passwordHash))) {
     return c.json({ error: "Credenciales inválidas" }, 401);
   }

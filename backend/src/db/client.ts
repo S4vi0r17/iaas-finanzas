@@ -1,22 +1,17 @@
-import { Database } from "bun:sqlite";
-import { drizzle } from "drizzle-orm/bun-sqlite";
-import { migrate } from "drizzle-orm/bun-sqlite/migrator";
-import { mkdirSync } from "node:fs";
-import { dirname } from "node:path";
+import { drizzle } from "drizzle-orm/mysql2";
+import { migrate } from "drizzle-orm/mysql2/migrator";
+import mysql from "mysql2/promise";
 import * as schema from "./schema";
 
-const DB_PATH = process.env.DB_PATH ?? "./data/iaas.sqlite";
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) throw new Error("DATABASE_URL no configurado");
 
-mkdirSync(dirname(DB_PATH), { recursive: true });
+const pool = mysql.createPool(DATABASE_URL);
 
-const sqlite = new Database(DB_PATH, { create: true });
-sqlite.exec("PRAGMA journal_mode = WAL;");
-sqlite.exec("PRAGMA foreign_keys = ON;");
-
-export const db = drizzle(sqlite, { schema });
-export { schema, sqlite };
+export const db = drizzle(pool, { schema, mode: "default" });
+export { schema, pool };
 
 /** Aplica las migraciones pendientes (se llama al arrancar). */
 export function runMigrations() {
-  migrate(db, { migrationsFolder: "./drizzle" });
+  return migrate(db, { migrationsFolder: "./drizzle" });
 }

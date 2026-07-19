@@ -22,20 +22,19 @@ function toPm(row: typeof paymentMethods.$inferSelect): PaymentMethod {
   };
 }
 
-function listForUser(userId: string): PaymentMethod[] {
-  return db
+async function listForUser(userId: string): Promise<PaymentMethod[]> {
+  const rows = await db
     .select()
     .from(paymentMethods)
     .where(eq(paymentMethods.userId, userId))
-    .orderBy(asc(paymentMethods.sortOrder), asc(paymentMethods.name))
-    .all()
-    .map(toPm);
+    .orderBy(asc(paymentMethods.sortOrder), asc(paymentMethods.name));
+  return rows.map(toPm);
 }
 
 export const paymentMethodRoutes = new Hono<AuthEnv>();
 
-paymentMethodRoutes.get("/", (c) => {
-  return c.json({ paymentMethods: listForUser(c.get("userId")) });
+paymentMethodRoutes.get("/", async (c) => {
+  return c.json({ paymentMethods: await listForUser(c.get("userId")) });
 });
 
 // Crear un medio de pago nuevo.
@@ -43,25 +42,22 @@ paymentMethodRoutes.post("/", async (c) => {
   const userId = c.get("userId");
   const input = await parseBody(c, createPaymentMethodInput);
 
-  const nextOrder =
-    (db
-      .select({ v: max(paymentMethods.sortOrder) })
-      .from(paymentMethods)
-      .where(eq(paymentMethods.userId, userId))
-      .get()?.v ?? -1) + 1;
+  const [maxRow] = await db
+    .select({ v: max(paymentMethods.sortOrder) })
+    .from(paymentMethods)
+    .where(eq(paymentMethods.userId, userId));
+  const nextOrder = (maxRow?.v ?? -1) + 1;
 
-  const row = db
-    .insert(paymentMethods)
-    .values({
-      id: randomUUID(),
-      userId,
-      name: input.name,
-      type: input.type,
-      active: input.active,
-      sortOrder: nextOrder,
-    })
-    .returning()
-    .get();
+  const id = randomUUID();
+  await db.insert(paymentMethods).values({
+    id,
+    userId,
+    name: input.name,
+    type: input.type,
+    active: input.active,
+    sortOrder: nextOrder,
+  });
+  const [row] = await db.select().from(paymentMethods).where(eq(paymentMethods.id, id));
 
   return c.json({ paymentMethod: toPm(row) }, 201);
 });
@@ -72,13 +68,16 @@ paymentMethodRoutes.patch("/:id", async (c) => {
   const id = c.req.param("id");
   const patch = await parseBody(c, updatePaymentMethodInput);
 
-  const row = db
+  const [owned] = await db
+    .select({ id: paymentMethods.id })
+    .from(paymentMethods)
+    .where(and(eq(paymentMethods.userId, userId), eq(paymentMethods.id, id)));
+  if (!owned) return c.json({ error: "Medio de pago no encontrado" }, 404);
+
+  await db
     .update(paymentMethods)
     .set(patch)
-    .where(and(eq(paymentMethods.userId, userId), eq(paymentMethods.id, id)))
-    .returning()
-    .get();
-
-  if (!row) return c.json({ error: "Medio de pago no encontrado" }, 404);
+    .where(and(eq(paymentMethods.userId, userId), eq(paymentMethods.id, id)));
+  const [row] = await db.select().from(paymentMethods).where(eq(paymentMethods.id, id));
   return c.json({ paymentMethod: toPm(row) });
 });

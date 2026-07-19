@@ -13,7 +13,7 @@ import { seedRoutes } from "./routes/seed";
 import { userRoutes } from "./routes/user";
 import { requireAuth, type AuthEnv } from "./middleware/auth";
 
-runMigrations();
+await runMigrations();
 
 const app = new Hono();
 

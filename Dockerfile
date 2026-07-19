@@ -1,4 +1,4 @@
-# ── IAAS Finanzas · Backend (Bun + Hono + SQLite) ──
+# ── IAAS Finanzas · Backend (Bun + Hono + MySQL) ──
 # Contexto de build = raíz del monorepo (por el workspace @iaas/shared).
 FROM oven/bun:1.3-alpine
 
@@ -15,12 +15,9 @@ RUN bun install --frozen-lockfile
 COPY packages ./packages
 COPY backend ./backend
 
-# 3) Datos persistentes (montar volumen aquí en Dokploy)
+# 3) DATABASE_URL apunta a la base MySQL creada en Dokploy (o donde sea)
 ENV NODE_ENV=production
-ENV DB_PATH=/app/data/iaas.sqlite
 ENV PORT=3000
-RUN mkdir -p /app/data
-VOLUME ["/app/data"]
 
 WORKDIR /app/backend
 EXPOSE 3000

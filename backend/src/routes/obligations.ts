@@ -38,7 +38,7 @@ export const obligationRoutes = new Hono<AuthEnv>();
  * pagado de cada obligación ese mes (suma de gastos ligados). El estado
  * (pendiente / parcial / pagado) se deriva comparando `pagos[id]` con `monto`.
  */
-obligationRoutes.get("/", (c) => {
+obligationRoutes.get("/", async (c) => {
   const userId = c.get("userId");
   const month = c.req.query("month");
 
@@ -49,23 +49,21 @@ obligationRoutes.get("/", (c) => {
         or(isNull(obligations.mesFin), gte(obligations.mesFin, month)),
       )
     : undefined;
-  const rows = db
+  const rows = await db
     .select()
     .from(obligations)
     .where(and(eq(obligations.userId, userId), vigencia))
-    .orderBy(asc(obligations.sortOrder))
-    .all();
+    .orderBy(asc(obligations.sortOrder));
 
   // Monto pagado por obligación ese mes = SUMA de gastos ligados (no booleano,
   // para soportar pagos parciales).
   const paidByObligation: Record<string, number> = {};
   if (month) {
-    const paidRows = db
+    const paidRows = await db
       .select({ obligationId: expenses.obligationId, total: sum(expenses.monto).mapWith(Number) })
       .from(expenses)
       .where(and(eq(expenses.userId, userId), like(expenses.fecha, `${month}-%`)))
-      .groupBy(expenses.obligationId)
-      .all();
+      .groupBy(expenses.obligationId);
     for (const paidRow of paidRows) {
       if (paidRow.obligationId) paidByObligation[paidRow.obligationId] = paidRow.total ?? 0;
     }
@@ -78,24 +76,25 @@ obligationRoutes.post("/", async (c) => {
   const userId = c.get("userId");
   const data = await parseBody(c, obligationInput);
 
-  const user = db.select({ isPro: users.isPro }).from(users).where(eq(users.id, userId)).get();
+  const [user] = await db.select({ isPro: users.isPro }).from(users).where(eq(users.id, userId));
   if (!user?.isPro) {
-    const count = db.select().from(obligations).where(eq(obligations.userId, userId)).all().length;
+    const count = (
+      await db.select({ id: obligations.id }).from(obligations).where(eq(obligations.userId, userId))
+    ).length;
     if (count >= MAX_FREE_OBLIGATIONS) {
       return c.json({ error: "LIMIT_REACHED", limit: MAX_FREE_OBLIGATIONS }, 403);
     }
   }
 
-  const maxRow = db
+  const [maxRow] = await db
     .select({ v: max(obligations.sortOrder) })
     .from(obligations)
-    .where(eq(obligations.userId, userId))
-    .get();
+    .where(eq(obligations.userId, userId));
   const sortOrder = (maxRow?.v ?? -1) + 1;
 
   const id = randomUUID();
-  db.insert(obligations).values({ id, userId, ...data, sortOrder }).run();
-  const row = db.select().from(obligations).where(eq(obligations.id, id)).get()!;
+  await db.insert(obligations).values({ id, userId, ...data, sortOrder });
+  const [row] = await db.select().from(obligations).where(eq(obligations.id, id));
   return c.json({ obligation: toObligation(row) }, 201);
 });
 
@@ -109,11 +108,10 @@ obligationRoutes.post("/:id/pay", async (c) => {
   const id = c.req.param("id");
   const { monto, paymentMethodId, fecha } = await parseBody(c, payObligationInput);
 
-  const obligation = db
+  const [obligation] = await db
     .select()
     .from(obligations)
-    .where(and(eq(obligations.id, id), eq(obligations.userId, userId)))
-    .get();
+    .where(and(eq(obligations.id, id), eq(obligations.userId, userId)));
   if (!obligation) return c.json({ error: "Obligación no encontrada" }, 404);
 
   const month = fecha.slice(0, 7); // YYYY-MM
@@ -122,18 +120,17 @@ obligationRoutes.post("/:id/pay", async (c) => {
   }
 
   // Saldo pendiente = monto planeado − ya pagado ese mes.
-  const alreadyPaid =
-    db
-      .select({ total: sum(expenses.monto).mapWith(Number) })
-      .from(expenses)
-      .where(
-        and(
-          eq(expenses.userId, userId),
-          eq(expenses.obligationId, id),
-          like(expenses.fecha, `${month}-%`),
-        ),
-      )
-      .get()?.total ?? 0;
+  const [paidRow] = await db
+    .select({ total: sum(expenses.monto).mapWith(Number) })
+    .from(expenses)
+    .where(
+      and(
+        eq(expenses.userId, userId),
+        eq(expenses.obligationId, id),
+        like(expenses.fecha, `${month}-%`),
+      ),
+    );
+  const alreadyPaid = paidRow?.total ?? 0;
 
   const remaining = Math.round((obligation.monto - alreadyPaid) * 100) / 100;
   if (remaining <= 0) return c.json({ error: "La obligación ya está pagada este mes" }, 409);
@@ -142,22 +139,20 @@ obligationRoutes.post("/:id/pay", async (c) => {
   }
 
   const expenseId = randomUUID();
-  db.insert(expenses)
-    .values({
-      id: expenseId,
-      userId,
-      descripcion: obligation.nombre,
-      monto,
-      cat: obligation.cat,
-      paymentMethodId: paymentMethodId ?? obligation.paymentMethodId,
-      obligationId: id,
-      tipo: kindForObligation(obligation.tipo as Obligation["tipo"]),
-      fecha,
-      moneda: obligation.moneda,
-    })
-    .run();
+  await db.insert(expenses).values({
+    id: expenseId,
+    userId,
+    descripcion: obligation.nombre,
+    monto,
+    cat: obligation.cat,
+    paymentMethodId: paymentMethodId ?? obligation.paymentMethodId,
+    obligationId: id,
+    tipo: kindForObligation(obligation.tipo as Obligation["tipo"]),
+    fecha,
+    moneda: obligation.moneda,
+  });
 
-  const row = db.select().from(expenses).where(eq(expenses.id, expenseId)).get()!;
+  const [row] = await db.select().from(expenses).where(eq(expenses.id, expenseId));
   const expense: Expense = {
     id: row.id,
     descripcion: row.descripcion,
@@ -176,12 +171,14 @@ obligationRoutes.post("/:id/pay", async (c) => {
 obligationRoutes.patch("/reorder", async (c) => {
   const userId = c.get("userId");
   const { orderedIds } = await parseBody(c, reorderObligationsInput);
-  orderedIds.forEach((id, i) => {
-    db.update(obligations)
-      .set({ sortOrder: i })
-      .where(and(eq(obligations.id, id), eq(obligations.userId, userId)))
-      .run();
-  });
+  await Promise.all(
+    orderedIds.map((id, i) =>
+      db
+        .update(obligations)
+        .set({ sortOrder: i })
+        .where(and(eq(obligations.id, id), eq(obligations.userId, userId))),
+    ),
+  );
   return c.json({ ok: true });
 });
 
@@ -190,28 +187,26 @@ obligationRoutes.patch("/:id", async (c) => {
   const id = c.req.param("id");
   const data = await parseBody(c, obligationInput);
 
-  const owned = db
+  const [owned] = await db
     .select({ id: obligations.id })
     .from(obligations)
-    .where(and(eq(obligations.id, id), eq(obligations.userId, userId)))
-    .get();
+    .where(and(eq(obligations.id, id), eq(obligations.userId, userId)));
   if (!owned) return c.json({ error: "No encontrada" }, 404);
 
-  db.update(obligations).set(data).where(eq(obligations.id, id)).run();
-  const row = db.select().from(obligations).where(eq(obligations.id, id)).get()!;
+  await db.update(obligations).set(data).where(eq(obligations.id, id));
+  const [row] = await db.select().from(obligations).where(eq(obligations.id, id));
   return c.json({ obligation: toObligation(row) });
 });
 
-obligationRoutes.delete("/:id", (c) => {
+obligationRoutes.delete("/:id", async (c) => {
   const userId = c.get("userId");
   const id = c.req.param("id");
-  const found = db
+  const [found] = await db
     .select({ id: obligations.id })
     .from(obligations)
-    .where(and(eq(obligations.id, id), eq(obligations.userId, userId)))
-    .get();
+    .where(and(eq(obligations.id, id), eq(obligations.userId, userId)));
   if (!found) return c.json({ error: "No encontrada" }, 404);
-  db.delete(obligations).where(and(eq(obligations.id, id), eq(obligations.userId, userId))).run();
+  await db.delete(obligations).where(and(eq(obligations.id, id), eq(obligations.userId, userId)));
   return c.json({ ok: true });
 });
 

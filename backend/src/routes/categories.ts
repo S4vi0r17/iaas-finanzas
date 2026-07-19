@@ -23,25 +23,24 @@ function toCategory(row: typeof categories.$inferSelect): Category {
   };
 }
 
-function listForUser(userId: string, scope?: string): Category[] {
+async function listForUser(userId: string, scope?: string): Promise<Category[]> {
   const scopeFilter =
     scope === "obligacion" || scope === "gasto" || scope === "ingreso"
       ? eq(categories.scope, scope)
       : undefined;
-  return db
+  const rows = await db
     .select()
     .from(categories)
     .where(and(eq(categories.userId, userId), scopeFilter))
-    .orderBy(asc(categories.sortOrder), asc(categories.name))
-    .all()
-    .map(toCategory);
+    .orderBy(asc(categories.sortOrder), asc(categories.name));
+  return rows.map(toCategory);
 }
 
 export const categoryRoutes = new Hono<AuthEnv>();
 
 // Lista las categorías del usuario. Con ?scope=obligacion|gasto|ingreso filtra.
-categoryRoutes.get("/", (c) => {
-  return c.json({ categories: listForUser(c.get("userId"), c.req.query("scope")) });
+categoryRoutes.get("/", async (c) => {
+  return c.json({ categories: await listForUser(c.get("userId"), c.req.query("scope")) });
 });
 
 // Crear una categoría nueva en un scope.
@@ -49,26 +48,23 @@ categoryRoutes.post("/", async (c) => {
   const userId = c.get("userId");
   const input = await parseBody(c, createCategoryInput);
 
-  const nextOrder =
-    (db
-      .select({ v: max(categories.sortOrder) })
-      .from(categories)
-      .where(and(eq(categories.userId, userId), eq(categories.scope, input.scope)))
-      .get()?.v ?? -1) + 1;
+  const [maxRow] = await db
+    .select({ v: max(categories.sortOrder) })
+    .from(categories)
+    .where(and(eq(categories.userId, userId), eq(categories.scope, input.scope)));
+  const nextOrder = (maxRow?.v ?? -1) + 1;
 
-  const row = db
-    .insert(categories)
-    .values({
-      id: randomUUID(),
-      userId,
-      scope: input.scope,
-      name: input.name,
-      icon: input.icon,
-      active: input.active,
-      sortOrder: nextOrder,
-    })
-    .returning()
-    .get();
+  const id = randomUUID();
+  await db.insert(categories).values({
+    id,
+    userId,
+    scope: input.scope,
+    name: input.name,
+    icon: input.icon,
+    active: input.active,
+    sortOrder: nextOrder,
+  });
+  const [row] = await db.select().from(categories).where(eq(categories.id, id));
 
   return c.json({ category: toCategory(row) }, 201);
 });
@@ -79,13 +75,16 @@ categoryRoutes.patch("/:id", async (c) => {
   const id = c.req.param("id");
   const patch = await parseBody(c, updateCategoryInput);
 
-  const row = db
+  const [owned] = await db
+    .select({ id: categories.id })
+    .from(categories)
+    .where(and(eq(categories.userId, userId), eq(categories.id, id)));
+  if (!owned) return c.json({ error: "Categoría no encontrada" }, 404);
+
+  await db
     .update(categories)
     .set(patch)
-    .where(and(eq(categories.userId, userId), eq(categories.id, id)))
-    .returning()
-    .get();
-
-  if (!row) return c.json({ error: "Categoría no encontrada" }, 404);
+    .where(and(eq(categories.userId, userId), eq(categories.id, id)));
+  const [row] = await db.select().from(categories).where(eq(categories.id, id));
   return c.json({ category: toCategory(row) });
 });

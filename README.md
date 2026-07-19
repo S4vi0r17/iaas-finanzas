@@ -8,7 +8,7 @@ ser mantenible y escalable.
 
 ```
 packages/shared/   # tipos, constantes y schemas Zod compartidos (@iaas/shared)
-backend/           # API Bun + Hono + Drizzle + SQLite (JWT)
+backend/           # API Bun + Hono + Drizzle + MySQL (JWT)
 app/               # cliente Expo SDK 55 (React Native)  → ver app/README.md
 Dockerfile         # imagen del backend (deploy en Dokploy)
 ```
@@ -16,13 +16,14 @@ Dockerfile         # imagen del backend (deploy en Dokploy)
 ## Requisitos
 
 - [Bun](https://bun.sh) (el monorepo usa `bunfig.toml` con `linker = "hoisted"`; sin eso Metro falla).
+- Un MySQL corriendo (local: `docker run -d --name iaas-mysql -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=iaas -p 3306:3306 mysql:8`).
 
 ## Correr en local
 
 ```bash
 bun install                                   # en la raíz, una vez
 # Backend:
-cd backend && JWT_SECRET=dev DB_PATH=./data/dev.sqlite bun run dev
+cd backend && JWT_SECRET=dev DATABASE_URL=mysql://root:root@localhost:3306/iaas bun run dev
 # App (en otra terminal):
 bun run dev:app                               # = cd app && bunx expo start
 ```
@@ -52,8 +53,9 @@ Scripts raíz: `bun run dev:backend`, `bun run dev:app`, `bun run typecheck`.
 
 ## Deploy
 
-Backend en Dokploy con el `Dockerfile` de la raíz. El SQLite vive en un volumen persistente
-(`/app/data`). En producción poner `ENABLE_DEV_SEED=false`.
+Backend en Dokploy con el `Dockerfile` de la raíz. La base MySQL se crea aparte con el
+"database creator" de Dokploy y se referencia vía `DATABASE_URL`. En producción poner
+`ENABLE_DEV_SEED=false`.
 
 ## Estado y pendientes
 
