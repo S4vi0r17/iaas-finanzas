@@ -1,6 +1,11 @@
 # Para Dokploy: apunta a este compose (o al Dockerfile de la raíz).
 # La base MySQL vive aparte (créala con el "database creator" de Dokploy) y
 # se referencia acá vía DATABASE_URL: así el redeploy del API nunca la toca.
+#
+# Dokploy escribe las variables que definís en su UI (Environment) a un .env
+# junto a este compose, pero NO las inyecta solas al contenedor: hace falta
+# `env_file` (o `${VAR}` en `environment`, que en algunas versiones de Dokploy
+# falla por dónde deja ese .env). Definí ahí DATABASE_URL y JWT_SECRET.
 services:
   api:
     build:
@@ -9,13 +14,11 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"
+    env_file:
+      - .env
     environment:
       NODE_ENV: production
       PORT: "3000"
-      # Cadena de conexión de la base MySQL creada en Dokploy.
-      DATABASE_URL: ${DATABASE_URL:?define DATABASE_URL}
-      # ¡Cámbialo en Dokploy! openssl rand -base64 48
-      JWT_SECRET: ${JWT_SECRET:?define JWT_SECRET}
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
       interval: 30s
