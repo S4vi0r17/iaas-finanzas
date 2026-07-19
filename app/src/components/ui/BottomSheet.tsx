@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text } from 'react-native';
+import { Modal, Pressable, ScrollView, Text } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 
 type Props = {
   visible: boolean;
@@ -10,14 +11,21 @@ type Props = {
 
 /** Modal que sube desde abajo (bottom sheet), como los del HTML original. */
 export function BottomSheet({ visible, onClose, title, children }: Props) {
+  // El Modal nativo de RN vive en su propia ventana: no hereda windowSoftInputMode
+  // de la Activity, y con edge-to-edge (gradle.properties: edgeToEdgeEnabled=true)
+  // adjustResize deja de mover el contenido en builds standalone (Expo Go sí lo hace,
+  // por eso ahí se ve bien). El KeyboardAvoidingView de react-native-keyboard-controller
+  // (no el de React Native) sí funciona dentro de un Modal y no depende de adjustResize.
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      {/* Evita que el teclado tape los inputs: en iOS empuja el sheet con padding;
-          en Android se apoya en windowSoftInputMode=adjustResize del manifest. */}
-      <KeyboardAvoidingView
-        className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+      statusBarTranslucent
+      navigationBarTranslucent
+    >
+      <KeyboardAvoidingView behavior="padding" className="flex-1">
         <Pressable className="flex-1 justify-end bg-black/50" onPress={onClose}>
           <Pressable
             className="max-h-[90%] rounded-t-3xl bg-white p-5 dark:bg-slate-800"
