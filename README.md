@@ -16,17 +16,22 @@ Dockerfile         # imagen del backend (deploy en Dokploy)
 ## Requisitos
 
 - [Bun](https://bun.sh) (el monorepo usa `bunfig.toml` con `linker = "hoisted"`; sin eso Metro falla).
-- Un MySQL corriendo (local: `docker run -d --name iaas-mysql -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=iaas -p 3306:3306 mysql:8`).
+- Un MySQL corriendo. Más fácil: `docker compose up -d db` (usa `compose.yaml`, solo para desarrollo local).
 
 ## Correr en local
 
 ```bash
 bun install                                   # en la raíz, una vez
+docker compose up -d db                       # MySQL local (una vez; el volumen persiste)
 # Backend:
 cd backend && JWT_SECRET=dev DATABASE_URL=mysql://root:root@localhost:3306/iaas bun run dev
 # App (en otra terminal):
 bun run dev:app                               # = cd app && bunx expo start
 ```
+
+`compose.yaml` también puede levantar el backend dockerizado (`docker compose up`), pero para
+desarrollo del día a día conviene correr el backend con `bun run dev` (hot reload) y solo usar
+compose para la base de datos.
 
 La app lee `EXPO_PUBLIC_API_URL` de `app/.env` (en dispositivo físico, la IP LAN de la PC).
 

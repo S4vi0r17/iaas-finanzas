@@ -1,11 +1,7 @@
-# Para Dokploy: apunta a este compose (o al Dockerfile de la raíz).
-# La base MySQL vive aparte (créala con el "database creator" de Dokploy) y
-# se referencia acá vía DATABASE_URL: así el redeploy del API nunca la toca.
-#
-# Dokploy escribe las variables que definís en su UI (Environment) a un .env
-# junto a este compose, pero NO las inyecta solas al contenedor: hace falta
-# `env_file` (o `${VAR}` en `environment`, que en algunas versiones de Dokploy
-# falla por dónde deja ese .env). Definí ahí DATABASE_URL y JWT_SECRET.
+# Solo para desarrollo local: `docker compose up` levanta el backend + MySQL
+# juntos, sin depender de nada externo. En producción se usa Dokploy con una
+# Application (Dockerfile) directa sobre la raíz del repo; este archivo no
+# interviene ahí.
 services:
   api:
     build:
@@ -14,13 +10,36 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"
-    env_file:
-      - .env
     environment:
-      NODE_ENV: production
+      NODE_ENV: development
       PORT: "3000"
+      DATABASE_URL: mysql://root:root@db:3306/iaas
+      JWT_SECRET: dev-insecure-secret-change-me
+      ENABLE_DEV_SEED: "true"
+    depends_on:
+      db:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
       interval: 30s
       timeout: 5s
       retries: 3
+
+  db:
+    image: mysql:8
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: iaas
+    ports:
+      - "3306:3306"
+    volumes:
+      - iaas_dev_mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  iaas_dev_mysql:
