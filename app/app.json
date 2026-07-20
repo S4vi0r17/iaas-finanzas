@@ -1,14 +1,14 @@
 {
   "expo": {
-    "name": "app",
-    "slug": "app",
+    "name": "IAAS Finanzas",
+    "slug": "iaas-finanzas",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "app",
+    "scheme": "iaasfinanzas",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "bundleIdentifier": "com.gbpardave.app"
+      "bundleIdentifier": "com.iaas.finanzas"
     },
     "android": {
       "adaptiveIcon": {
@@ -18,7 +18,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.gbpardave.app"
+      "package": "com.iaas.finanzas"
     },
     "web": {
       "output": "static",
