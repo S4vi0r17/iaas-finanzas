@@ -36,7 +36,8 @@ adminRoutes.get("/whatsapp-qr", async (c) => {
     body = `<p>Esperando a que el cliente arranque...</p>`;
   }
 
-  return c.html(`<!doctype html>
+  return c.html(
+    `<!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8" />
@@ -67,5 +68,8 @@ adminRoutes.get("/whatsapp-qr", async (c) => {
   <h1>📲 WhatsApp del negocio</h1>
   ${body}
 </body>
-</html>`);
+</html>`,
+    200,
+    { "Cache-Control": "no-store, no-cache, must-revalidate" },
+  );
 });

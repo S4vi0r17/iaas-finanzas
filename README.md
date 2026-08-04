@@ -62,6 +62,16 @@ Backend en Dokploy con el `Dockerfile` de la raíz. La base MySQL se crea aparte
 "database creator" de Dokploy y se referencia vía `DATABASE_URL`. En producción poner
 `ENABLE_DEV_SEED=false`.
 
+Variables de entorno propias de los recordatorios por WhatsApp (ver detalle y estado en
+[`PENDIENTES.md`](PENDIENTES.md), sección Fase 3):
+- `ADMIN_QR_KEY`: clave para acceder a `/admin/whatsapp-qr` (página con el QR para vincular la
+  cuenta de WhatsApp del negocio). Sin configurarla, esa ruta queda deshabilitada.
+- `WHATSAPP_DIGEST_HOUR` (opcional, default `8`): hora del día desde la que se manda el digest.
+- `WHATSAPP_SESSION_PATH` (opcional, default `./.wwebjs_auth`): dónde se guarda la sesión de
+  WhatsApp. **Pendiente sin resolver:** todavía no hay forma confiable de persistir esta carpeta
+  entre deploys en Dokploy (ver detalle del problema en PENDIENTES.md) — cada deploy hoy pide
+  volver a escanear un QR.
+
 ## Estado y pendientes
 
 Ver [`PENDIENTES.md`](PENDIENTES.md) para el estado por fase, decisiones de diseño y gaps

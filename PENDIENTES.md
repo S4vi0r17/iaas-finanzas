@@ -49,110 +49,126 @@ de tipo, guard de vigencia). NO hay suite de tests versionada ni CI (ver Gaps).
 - Pendiente opcional: toggle en Ajustes para activar/desactivar recordatorios (hoy se pide
   permiso automatico al entrar a la app logueado, sin UI para desactivarlo desde la app).
 
-### Fase 3 - WhatsApp - HECHO
-- DECISION: recordatorios 100% automaticos por WhatsApp (obligaciones por vencer, pagos, etc.),
-  SIN envio manual (nada de Linking/wa.me) y SIN que el usuario tenga que activar nada de su
-  lado (ni opt-in, ni apikey). El usuario solo carga su numero en Ajustes.
-- Se probo primero con CallMeBot (API HTTP gratuita) pero se descarto: su API gratuita solo deja
-  mandarle mensajes al MISMO numero que hizo el opt-in -> no se puede mandar desde una cuenta a
-  numeros de terceros. Eso obligaba a que cada usuario se activara a mano contra el bot de
-  CallMeBot, lo cual no cumplia el objetivo (usuarios que no configuran nada). Es una limitacion
-  estructural de la API, no solo friccion de UX.
-- Libreria elegida: whatsapp-web.js (v1.34.7) + qrcode-terminal. Una sola cuenta de WhatsApp del
-  NEGOCIO (se escanea un QR una vez) le manda el digest directo a cada usuario usando solo su
-  numero de telefono. Riesgos asumidos explicitamente por decision del usuario:
-  - Automatizacion no oficial de WhatsApp Web -> riesgo real de ban de la cuenta. Si pasa, se
-    cae el envio para TODOS los usuarios a la vez (a diferencia de CallMeBot, donde solo se
-    afectaba a un usuario).
-  - Sesion persistida en disco (LocalAuth) — si se pierde (redeploy sin volumen persistente,
-    WhatsApp cierra la sesion, etc.) hay que volver a escanear un QR a mano viendo los logs del
-    contenedor (backend/src/lib/whatsapp.ts loguea el QR en ASCII con qrcode-terminal al evento
-    'qr'; se ve con `docker logs` o el visor de logs de Dokploy).
-- IMPORTANTE - requiere volumen persistente en produccion: hay que configurar en Dokploy un
-  volumen montado en /app/backend/.wwebjs_auth para la Application del backend (ademas del
-  volumen de MySQL que ya existe). Sin esto, cada redeploy borra la sesion y el envio se corta
-  hasta volver a escanear el QR a mano. compose.yaml ya tiene el volumen equivalente para dev
-  local (iaas_wa_session); Dokploy hay que configurarlo aparte, es un paso manual fuera del repo.
-- Docker: el Chromium que descarga Puppeteer por defecto es glibc y NO corre en Alpine (musl).
-  El Dockerfile instala el paquete `chromium` nativo de Alpine (`apk add chromium nss freetype
-  harfbuzz ca-certificates ttf-freefont`) y apunta Puppeteer ahi con PUPPETEER_EXECUTABLE_PATH=
-  /usr/bin/chromium-browser + PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true (saltea su propia descarga).
-  Verificado con `docker build` real: el binario queda en /usr/bin/chromium-browser (symlink) y
-  arranca headless con --no-sandbox --disable-setuid-sandbox --disable-gpu (sin --disable-gpu
-  tira errores de Vulkan/ANGLE en el contenedor sin GPU, aunque no impiden el envio; se dejo el
-  flag para evitar el ruido). En dev local (`bun run dev`, fuera de Docker) no hace falta nada
-  de esto: Puppeteer descarga su propio Chromium normal en el `bun install` de la raiz.
-- BUG encontrado y arreglado en produccion (Dokploy): si el contenedor se mata de golpe
-  (redeploy, OOM) sin que Chromium se cierre limpio, el perfil de LocalAuth queda con un lock
-  (SingletonLock/SingletonSocket/SingletonCookie, symlinks) que bloquea el siguiente arranque
-  con "Failed to launch the browser process: ... profile appears to be in use by another
-  Chromium process (PID) on another computer", aunque ese proceso ya no exista. Se soluciono en
-  backend/src/lib/whatsapp.ts con dos cosas: (1) clearStaleChromeLock() borra esos lock files
-  antes de iniciar el cliente en cada boot (rmSync con force, no falla si no existen), y (2) un
-  handler de SIGTERM/SIGINT que llama client.destroy() para que Chromium cierre prolijo cuando
-  Docker para el contenedor (redeploy normal), evitando que el lock quede huerfano en primer
-  lugar. Reproducido y verificado en local: se mato el proceso con -9 completo (bun + todo el
-  arbol de Chromium) para simular el kill duro de un redeploy, y el siguiente arranque booteo
-  limpio en vez de crashear. Confirmado tambien en Dokploy por el usuario: redeploy sin crash y
-  la sesion siguio autenticada (el volumen persistente ya esta funcionando bien).
-- backend/src/lib/whatsappTest.ts (`bun run wa:test <telefono>` desde backend/): script manual
-  para mandar un mensaje de prueba sin depender de que haya obligaciones pendientes ni esperar
-  al horario del digest diario. Espera hasta ~60s a que el cliente autentique y confirma si el
-  envio funciono.
-- Sin gate de Plan PRO por ahora (libre para todos los usuarios). El unico uso real de `isPro`
-  en el backend sigue siendo el limite de obligaciones gratis en obligations.ts; no hay flujo de
-  upgrade/pago, asi que no se gateo esto todavia.
-- Disparador: timer interno (`setInterval`) dentro del propio proceso Bun del backend
-  (backend/src/lib/whatsappScheduler.ts), arrancado desde index.ts tras runMigrations(). No hay
-  cron externo: el backend corre siempre encendido en Docker (Dokploy/compose), no serverless.
-  Chequea cada 5 min (CHECK_INTERVAL_MS); envia una sola vez por dia calendario, pasada la hora
-  SEND_HOUR (default 8, configurable con env var WHATSAPP_DIGEST_HOUR). El "ya se envio hoy" se
-  guarda en una variable en memoria (lastSentDate) -> se resetea en cada redeploy; peor caso, un
-  digest duplicado o saltado el dia del redeploy. Aceptable para el alcance actual, no amerita
-  tabla nueva. Pacing de 4s entre envios a distintos usuarios (cortesia para no parecer spam).
-- Contenido: un solo digest diario por usuario (no un mensaje por obligacion), agrupado en
-  Atrasadas / Vencen hoy / Proximas (mismos 3 dias que la ventana de notificaciones locales de
-  Fase 2, via dueDate ahora compartido). Si el usuario no tiene nada pendiente ese dia, no se le
-  manda nada (evita ruido diario). Solo se les manda a usuarios con waPhone no vacio.
-- Modelo de datos: la columna waKey (necesaria solo para CallMeBot) se elimino de punta a punta
-  (backend/src/db/schema.ts, packages/shared/src/schemas.ts, backend/src/routes/auth.ts,
-  migracion backend/drizzle/0001_sad_ultragirl.sql) — era segura de borrar porque se agrego en
-  esta misma sesion y nunca llego a produccion. waPhone se mantiene igual.
-- dueDate() se movio de app/src/lib/obligationStatus.ts a packages/shared/src/date.ts (matematica
-  de fechas pura, sin dependencias de React Native) para que el backend pudiera reusarla sin
-  duplicar la logica de vencimiento. obligationStatus.ts ahora re-exporta desde @iaas/shared.
-- Probado extremo a extremo en local contra MySQL real: `docker build` real de la imagen
-  (Chromium de Alpine arranca bien), y backend corriendo con `bun run dev` + WHATSAPP_DIGEST_HOUR=0
-  confirmo que el cliente de whatsapp-web.js arranca, genera el QR en ASCII en los logs, y que el
-  scheduler maneja con gracia el caso "cliente todavia no listo" (no crashea, solo loguea y
-  reintenta el proximo dia). Confirmado en produccion con un numero real: mensaje de prueba y
-  digest automatico llegaron OK.
-- Boton "Enviar mensaje de prueba" en Ajustes (POST /api/me/whatsapp-test, backend/src/routes/
-  user.ts): manda al numero que este escrito en el campo (no hace falta guardarlo antes),
-  reusa el mismo cliente de WhatsApp ya corriendo en el proceso (no levanta uno nuevo, evita
-  conflicto de lock con el cliente principal), cooldown de 60s por usuario para evitar spam.
-  Utils: app/src/hooks/queries.ts (useSendWhatsappTest), backend/src/lib/whatsappTest.ts
-  (`bun run wa:test <telefono>`, script de linea de comandos equivalente pero standalone —
-  NO correrlo mientras el proceso principal esta vivo, compiten por el mismo lock de Chromium).
-- Cadencia de "atrasado" ajustada: antes avisaba TODOS los dias (push local y WhatsApp), ahora
-  cada 3 dias (ATRASADO_CADA_DIAS) mientras siga sin pagar. En push local se cambio el trigger
-  de DAILY a TIME_INTERVAL (seconds: 3*86400, repeats:true). En WhatsApp se agrego un cooldown
-  en memoria por obligacion (lastAtrasadoNotifiedAt en whatsappScheduler.ts) que omite la
-  obligacion del digest de ese dia si ya se aviso hace menos de 3 dias (aunque siga atrasada).
-  Los mensajes de "atrasada" y "proxima" ahora incluyen la fecha concreta de vencimiento
-  (antes solo decian la categoria, sin fecha).
-- BUG encontrado y resuelto en Dokploy (persistencia de sesion, iteracion 2): con un "Volume
-  Mount" (nombre wa-session, path /app/backend/.wwebjs_auth) la sesion se perdio igual despues
-  de un "Deploy" normal (sin tocar la config del mount) — causa exacta sin confirmar, sospecha
-  de que Dokploy recrea el volumen con nombre internamente en un deploy completo aunque la UI
-  muestre el mismo nombre. Se probo pasar a Bind Mount a un path del host (/opt/iaas-wa-session)
-  pero **tumbo el contenedor entero** ("No such container"): el "Open Terminal" de Dokploy abre
-  una shell DENTRO del contenedor, no del servidor host, asi que la carpeta creada con mkdir
-  nunca existio de verdad en el host, y Docker se niega a arrancar un contenedor cuyo Bind Mount
-  apunta a un path inexistente en el host. Se recupero borrando el mount y redeployando. Sigue
-  PENDIENTE encontrar una terminal real al servidor (buscar seccion "Servers"/infra en Dokploy
-  fuera de esta Application) antes de reintentar un Bind Mount. Mientras tanto, sin volumen
-  persistente: cada redeploy pide re-escanear el QR (molesto pero no rompe nada).
+### Fase 3 - WhatsApp - HECHO (funciona; falta resolver la persistencia de sesion)
+
+**Decision y por que.** Recordatorios 100% automaticos por WhatsApp (obligaciones por vencer,
+atrasadas, etc.), sin envio manual (nada de Linking/wa.me) y sin que el usuario tenga que activar
+nada de su lado — solo carga su numero en Ajustes. Se descartaron dos alternativas:
+- **CallMeBot** (API HTTP gratuita, probada primero): su API gratuita solo deja mandar mensajes
+  al MISMO numero que hizo el opt-in -> no se puede mandar desde una cuenta a numeros de
+  terceros. Es una limitacion estructural (no solo friccion), obligaba a que cada usuario se
+  activara a mano contra el bot de CallMeBot.
+- **Meta WhatsApp Cloud API oficial**: sin riesgo de ban, pero exige verificar cuenta de negocio
+  y aprobar plantillas de mensaje — mucho mas setup inicial. Se descarto por ahora a favor de
+  velocidad, asumiendo el riesgo de la opcion no oficial.
+
+**Libreria elegida:** whatsapp-web.js (v1.34.7). Una sola cuenta de WhatsApp del NEGOCIO (se
+escanea un QR una vez) le manda el digest directo a cada usuario usando solo su numero. Riesgos
+asumidos explicitamente por decision del usuario: automatizacion no oficial de WhatsApp Web ->
+riesgo real de ban de cuenta (si pasa, se cae el envio para TODOS los usuarios a la vez, a
+diferencia de CallMeBot donde solo se afectaba a un usuario); y sesion que vive en disco
+(LocalAuth) y hay que volver a escanear un QR si se pierde.
+
+**Arquitectura:**
+- `backend/src/lib/whatsapp.ts`: cliente whatsapp-web.js (`startWhatsappClient`), `sendWhatsApp
+  (phone, text)`, y `getWhatsappStatus()` (ready + ultimo QR pendiente).
+- `backend/src/lib/whatsappScheduler.ts`: timer interno (`setInterval`, no cron externo — el
+  backend corre siempre encendido en Docker, no serverless) arrancado desde `index.ts` tras
+  `runMigrations()`. Chequea cada 5 min; envia el digest una sola vez por dia calendario, pasada
+  la hora `SEND_HOUR` (default 8, configurable con `WHATSAPP_DIGEST_HOUR`). El "ya se envio hoy"
+  vive en memoria (`lastSentDate`) -> se resetea en cada redeploy; peor caso, un digest duplicado
+  o saltado el dia del redeploy, aceptable para el alcance actual. Pacing de 4s entre envios a
+  distintos usuarios (cortesia para no parecer spam).
+- Contenido: un solo digest diario por usuario, agrupado en Atrasadas / Vencen hoy / Proximas
+  (3 dias, `dueDate()` compartida con Fase 2 via `packages/shared/src/date.ts`). Cada item ahora
+  incluye la fecha concreta de vencimiento (antes solo decia la categoria). Si el usuario no
+  tiene nada pendiente ese dia, no se le manda nada (evita ruido diario). Solo a usuarios con
+  `waPhone` no vacio.
+- **Cadencia de "atrasado" ajustada:** antes avisaba TODOS los dias (push local y WhatsApp), ahora
+  cada 3 dias (`ATRASADO_CADA_DIAS`) mientras siga sin pagar. Push local: trigger cambiado de
+  `DAILY` a `TIME_INTERVAL` (seconds: 3\*86400, repeats:true) en `app/src/lib/notifications.ts`.
+  WhatsApp: cooldown en memoria por obligacion (`lastAtrasadoNotifiedAt` en whatsappScheduler.ts)
+  que omite la obligacion del digest si ya se aviso hace menos de 3 dias.
+- Modelo de datos: la columna `waKey` (solo necesaria para CallMeBot) se elimino de punta a punta
+  (schema, Zod, ruta, migracion `backend/drizzle/0001_sad_ultragirl.sql`) — segura de borrar
+  porque nunca llego a produccion. `waPhone` se mantiene.
+- Sin gate de Plan PRO por ahora (libre para todos). El unico uso real de `isPro` en el backend
+  sigue siendo el limite de obligaciones gratis en `obligations.ts`; no hay flujo de upgrade/pago
+  todavia.
+
+**Docker / Chromium en Alpine.** El Chromium que descarga Puppeteer por defecto es glibc y NO
+corre en Alpine (musl). El `Dockerfile` instala el paquete `chromium` nativo de Alpine (`apk add
+--no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont`) y apunta Puppeteer ahi
+con `PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser` + `PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=
+true`. Verificado con `docker build` real. Puppeteer args: `--no-sandbox --disable-setuid-sandbox
+--disable-gpu` (sin `--disable-gpu` tira errores de Vulkan/ANGLE en el contenedor sin GPU, no
+impiden el envio pero ensucian el log). En dev local (`bun run dev`, fuera de Docker) no hace
+falta nada de esto: Puppeteer descarga su propio Chromium en el `bun install` de la raiz.
+
+**Bug resuelto: lock de Chromium huerfano tras un kill duro.** Si el contenedor se mata de golpe
+(redeploy, OOM) sin que Chromium cierre limpio, el perfil de LocalAuth queda con un lock
+(`SingletonLock`/`SingletonSocket`/`SingletonCookie`, symlinks) que bloquea el siguiente arranque
+con "Failed to launch the browser process: ... profile appears to be in use by another Chromium
+process (PID) on another computer", aunque ese proceso ya no exista. Solucionado en
+`backend/src/lib/whatsapp.ts`: (1) `clearStaleChromeLock()` borra esos lock files antes de
+iniciar el cliente en cada boot, y (2) un handler de SIGTERM/SIGINT que llama `client.destroy()`
+para que Chromium cierre prolijo cuando Docker para el contenedor, evitando que el lock quede
+huerfano en primer lugar. Reproducido y verificado en local (kill -9 de todo el arbol de
+Chromium) y confirmado en Dokploy: ya no crashea.
+
+**Herramientas de diagnostico:**
+- Logging de todo el ciclo de vida en `whatsapp.ts` (SESSION_PATH resuelto, si ya hay una sesion
+  guardada, eventos `qr`/`loading_screen`/`authenticated`/`change_state`/`ready`/`disconnected`).
+- `GET /admin/whatsapp-qr?key=...` (`backend/src/routes/admin.ts`): pagina HTML servida por el
+  propio backend con el QR como imagen real (PNG generado con el paquete `qrcode`, no ASCII) —
+  evita mandar capturas de la terminal al cliente para que escanee. Se autoactualiza cada 5s
+  (`<meta http-equiv="refresh">` + `Cache-Control: no-store` para que el navegador no sirva una
+  version vieja del QR ya rotado). Protegida por la variable de entorno `ADMIN_QR_KEY` (sin
+  configurarla, la ruta responde 503; con clave incorrecta, 401) — HAY QUE CONFIGURARLA en
+  Dokploy con un valor secreto random antes de usarla.
+- Boton "Enviar mensaje de prueba" en Ajustes (`POST /api/me/whatsapp-test`,
+  `backend/src/routes/user.ts`): manda al numero escrito en el campo sin hace falta guardarlo
+  antes, reusa el mismo cliente ya corriendo en el proceso (no levanta uno nuevo, evita conflicto
+  de lock), cooldown de 60s por usuario. Hook: `app/src/hooks/queries.ts` (`useSendWhatsappTest`).
+- `backend/src/lib/whatsappTest.ts` (`bun run wa:test <telefono>`, desde `backend/`): script de
+  linea de comandos equivalente pero standalone. **NO correrlo mientras el proceso principal esta
+  vivo** — compiten por el mismo lock de Chromium sobre la misma sesion.
+- Confirmado en produccion con un numero real: mensaje de prueba y digest automatico llegaron OK.
+
+**PENDIENTE — persistencia de sesion entre deploys (comportamiento inconsistente, sin cerrar).**
+Con un **Volume Mount** (nombre `wa-session`, path `/app/backend/.wwebjs_auth`) el resultado no
+fue el mismo en dos intentos:
+- 1er intento: sesion se perdio despues de un "Deploy" normal, sin tocar la config del mount ->
+  pidio QR de nuevo.
+- 2do intento (mismo Volume Mount, sin cambios): sesion SI sobrevivio un redeploy — logueo
+  `session existe con 41 entradas (incluye 'Default')` y autentico sin pedir QR.
+
+No hay una causa confirmada para la inconsistencia — puede que el primer fallo haya coincidido
+con otro problema (ej. el bug de build cache corrupta que dio "Fail extracting tarball for
+typescript" en un deploy de esa misma epoca) y no haya sido el Volume Mount en si. **No dar esto
+por resuelto todavia**: falta confirmar que sobreviva 2-3 "Deploy" consecutivos seguidos antes de
+confiar en el Volume Mount. Mientras tanto, si en algun redeploy vuelve a pedir QR, no es un bug
+nuevo — es este mismo problema sin cerrar.
+
+Tambien se probo (y se descarto) un **Bind Mount** a un path del host (`/opt/iaas-wa-session`):
+**tumbo el contenedor entero** ("No such container"). Causa: el "Open Terminal" de Dokploy abre
+una shell DENTRO del contenedor, no del servidor host, asi que la carpeta creada con `mkdir`
+nunca existio de verdad en el host — Docker se niega a arrancar un contenedor cuyo Bind Mount
+apunta a un path inexistente en el host real. Se recupero borrando el mount y redeployando. No
+reintentar Bind Mount sin antes encontrar una terminal real al servidor (buscar una seccion tipo
+"Servers"/infraestructura en el menu principal de Dokploy, fuera de esta Application) — ya
+crasheo el servicio una vez a ciegas.
+
+`compose.yaml` tiene el volumen equivalente para dev local (`iaas_wa_session`); ahi no se vio
+este problema (Docker Compose local no pasa por lo que sea que le pasa a Dokploy).
+
+**Variables de entorno relevantes (backend):**
+- `WHATSAPP_SESSION_PATH` (opcional, default `./.wwebjs_auth`): donde LocalAuth guarda la sesion.
+- `WHATSAPP_DIGEST_HOUR` (opcional, default `8`): hora del dia (0-23) desde la que se manda el
+  digest diario.
+- `ADMIN_QR_KEY` (**hay que configurarla en Dokploy**, sin default): clave para acceder a
+  `/admin/whatsapp-qr`.
+- `PUPPETEER_EXECUTABLE_PATH`: ya seteada en el Dockerfile, no hace falta tocarla.
 
 ### Fase 4 - Chat FAQ y Plan PRO
 - Chat de preguntas frecuentes (respuestas por palabra clave, como el HTML).
