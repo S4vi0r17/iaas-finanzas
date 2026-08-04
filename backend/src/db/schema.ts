@@ -8,7 +8,6 @@ export const users = mysqlTable("users", {
   name: varchar("name", { length: 255 }).notNull().default(""),
   currency: varchar("currency", { length: 10 }).notNull().default("PEN"),
   waPhone: varchar("wa_phone", { length: 32 }).notNull().default(""),
-  waKey: varchar("wa_key", { length: 255 }).notNull().default(""),
   isPro: boolean("is_pro").notNull().default(false),
   createdAt: bigint("created_at", { mode: "number" })
     .notNull()

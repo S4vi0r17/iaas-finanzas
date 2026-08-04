@@ -19,6 +19,10 @@ services:
       - backend/.env
     environment:
       DATABASE_URL: mysql://root:root@db:3306/iaas
+    volumes:
+      # Sesión de WhatsApp (whatsapp-web.js LocalAuth): sin esto, cada
+      # `docker compose up` pide re-escanear el QR desde cero.
+      - iaas_wa_session:/app/backend/.wwebjs_auth
     depends_on:
       db:
         condition: service_healthy
@@ -46,3 +50,4 @@ services:
 
 volumes:
   iaas_dev_mysql:
+  iaas_wa_session:

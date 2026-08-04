@@ -4,6 +4,12 @@ FROM oven/bun:1.3-alpine
 
 WORKDIR /app
 
+# Chromium nativo de Alpine para whatsapp-web.js/Puppeteer (el binario que
+# Puppeteer descarga por defecto es glibc y no corre en musl/Alpine).
+RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
 # 1) Instalar dependencias con caché (solo manifests primero)
 COPY package.json bun.lock bunfig.toml ./
 COPY packages/shared/package.json packages/shared/

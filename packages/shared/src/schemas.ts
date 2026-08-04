@@ -58,7 +58,6 @@ export const userProfile = z.object({
   name: z.string(),
   currency: currencyCode,
   waPhone: z.string(),
-  waKey: z.string(),
   isPro: z.boolean(),
 });
 
@@ -67,7 +66,6 @@ export const updateUserInput = z
     name: shortText,
     currency: currencyCode,
     waPhone: z.string().trim().max(20),
-    waKey: z.string().trim().max(64),
   })
   .partial();
 

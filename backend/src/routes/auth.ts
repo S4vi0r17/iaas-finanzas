@@ -15,7 +15,6 @@ export function toProfile(row: typeof users.$inferSelect): UserProfile {
     name: row.name,
     currency: row.currency,
     waPhone: row.waPhone,
-    waKey: row.waKey,
     isPro: row.isPro,
   };
 }

@@ -71,13 +71,17 @@ export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose:
   const createPm = useCreatePaymentMethod();
 
   const [name, setName] = useState('');
+  const [waPhone, setWaPhone] = useState('');
   const [newName, setNewName] = useState('');
   const [newType, setNewType] = useState<PmType>('credito');
   const [catsOpen, setCatsOpen] = useState(false);
 
   useEffect(() => {
-    if (visible) setName(user?.name ?? '');
-  }, [visible, user?.name]);
+    if (visible) {
+      setName(user?.name ?? '');
+      setWaPhone(user?.waPhone ?? '');
+    }
+  }, [visible, user?.name, user?.waPhone]);
 
   async function addPm() {
     const trimmed = newName.trim();
@@ -88,7 +92,10 @@ export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose:
   }
 
   async function save() {
-    if (name.trim() !== (user?.name ?? '')) await updateUser.mutateAsync({ name: name.trim() });
+    const patch: { name?: string; waPhone?: string } = {};
+    if (name.trim() !== (user?.name ?? '')) patch.name = name.trim();
+    if (waPhone.trim() !== (user?.waPhone ?? '')) patch.waPhone = waPhone.trim();
+    if (Object.keys(patch).length > 0) await updateUser.mutateAsync(patch);
     onClose();
   }
 
@@ -176,6 +183,20 @@ export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose:
         <Text className="text-slate-400">›</Text>
       </Pressable>
       <CategoriesSheet visible={catsOpen} onClose={() => setCatsOpen(false)} />
+
+      <Text className="mb-1 mt-3 text-sm font-bold text-slate-800 dark:text-slate-100">
+        📲 Recordatorios por WhatsApp
+      </Text>
+      <Text className="mb-2 text-xs text-slate-500 dark:text-slate-400">
+        Vas a recibir un resumen por WhatsApp cuando tengas obligaciones por vencer o atrasadas.
+      </Text>
+      <Field
+        label="Tu número (con código de país)"
+        value={waPhone}
+        onChangeText={setWaPhone}
+        placeholder="+51987654321"
+        keyboardType="phone-pad"
+      />
 
       <View className="mt-3 flex-row gap-3">
         <Pressable

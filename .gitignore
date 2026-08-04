@@ -18,6 +18,10 @@ build/
 *.db
 data/
 
+# sesión de WhatsApp (whatsapp-web.js LocalAuth) — credenciales de la cuenta
+.wwebjs_auth/
+.wwebjs_cache/
+
 # expo
 app/.expo/
 app/dist/

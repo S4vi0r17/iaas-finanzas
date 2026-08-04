@@ -12,8 +12,12 @@ import { paymentMethodRoutes } from "./routes/paymentMethods";
 import { seedRoutes } from "./routes/seed";
 import { userRoutes } from "./routes/user";
 import { requireAuth, type AuthEnv } from "./middleware/auth";
+import { startWhatsappClient } from "./lib/whatsapp";
+import { startWhatsappScheduler } from "./lib/whatsappScheduler";
 
 await runMigrations();
+startWhatsappClient();
+startWhatsappScheduler();
 
 const app = new Hono();
 

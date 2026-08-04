@@ -49,23 +49,67 @@ de tipo, guard de vigencia). NO hay suite de tests versionada ni CI (ver Gaps).
 - Pendiente opcional: toggle en Ajustes para activar/desactivar recordatorios (hoy se pide
   permiso automatico al entrar a la app logueado, sin UI para desactivarlo desde la app).
 
-### Fase 3 - WhatsApp
+### Fase 3 - WhatsApp - HECHO
 - DECISION: recordatorios 100% automaticos por WhatsApp (obligaciones por vencer, pagos, etc.),
-  SIN envio manual (nada de Linking/wa.me). El usuario no debe tener que tocar nada.
-- Libreria elegida: CallMeBot (API HTTP simple, gratis para uso personal/bajo volumen). El
-  usuario activa su numero mandando el mensaje de opt-in al bot de CallMeBot una sola vez y
-  obtiene un apikey; el backend dispara los mensajes con un GET a
-  api.callmebot.com/whatsapp.php?phone=...&text=...&apikey=...
-  - Gratis, no requiere tarjeta ni pago. OJO: es un servicio de un tercero no oficial, sin SLA,
-    con limites de tasa no muy documentados; puede cambiar condiciones o caerse sin aviso. Vale
-    para validar el MVP; si el proyecto escala conviene migrar a la WhatsApp Cloud API oficial
-    de Meta (gratis hasta ~1000 conversaciones/mes, pero exige verificar cuenta de negocio y
-    aprobar plantillas de mensaje).
-- Descartadas: whatsapp-web.js, wppconnect, venom-bot. Motivo: automatizan WhatsApp Web via
-  Puppeteer/Chromium enlazando un numero real por QR -> viola ToS de WhatsApp (riesgo de ban),
-  necesitan un proceso persistente 24/7 con navegador y sesion que puede expirar, y estan
-  pensadas para Node (compatibilidad no garantizada con el runtime Bun del backend).
-- Config de numero y API key de CallMeBot en Ajustes.
+  SIN envio manual (nada de Linking/wa.me) y SIN que el usuario tenga que activar nada de su
+  lado (ni opt-in, ni apikey). El usuario solo carga su numero en Ajustes.
+- Se probo primero con CallMeBot (API HTTP gratuita) pero se descarto: su API gratuita solo deja
+  mandarle mensajes al MISMO numero que hizo el opt-in -> no se puede mandar desde una cuenta a
+  numeros de terceros. Eso obligaba a que cada usuario se activara a mano contra el bot de
+  CallMeBot, lo cual no cumplia el objetivo (usuarios que no configuran nada). Es una limitacion
+  estructural de la API, no solo friccion de UX.
+- Libreria elegida: whatsapp-web.js (v1.34.7) + qrcode-terminal. Una sola cuenta de WhatsApp del
+  NEGOCIO (se escanea un QR una vez) le manda el digest directo a cada usuario usando solo su
+  numero de telefono. Riesgos asumidos explicitamente por decision del usuario:
+  - Automatizacion no oficial de WhatsApp Web -> riesgo real de ban de la cuenta. Si pasa, se
+    cae el envio para TODOS los usuarios a la vez (a diferencia de CallMeBot, donde solo se
+    afectaba a un usuario).
+  - Sesion persistida en disco (LocalAuth) — si se pierde (redeploy sin volumen persistente,
+    WhatsApp cierra la sesion, etc.) hay que volver a escanear un QR a mano viendo los logs del
+    contenedor (backend/src/lib/whatsapp.ts loguea el QR en ASCII con qrcode-terminal al evento
+    'qr'; se ve con `docker logs` o el visor de logs de Dokploy).
+- IMPORTANTE - requiere volumen persistente en produccion: hay que configurar en Dokploy un
+  volumen montado en /app/backend/.wwebjs_auth para la Application del backend (ademas del
+  volumen de MySQL que ya existe). Sin esto, cada redeploy borra la sesion y el envio se corta
+  hasta volver a escanear el QR a mano. compose.yaml ya tiene el volumen equivalente para dev
+  local (iaas_wa_session); Dokploy hay que configurarlo aparte, es un paso manual fuera del repo.
+- Docker: el Chromium que descarga Puppeteer por defecto es glibc y NO corre en Alpine (musl).
+  El Dockerfile instala el paquete `chromium` nativo de Alpine (`apk add chromium nss freetype
+  harfbuzz ca-certificates ttf-freefont`) y apunta Puppeteer ahi con PUPPETEER_EXECUTABLE_PATH=
+  /usr/bin/chromium-browser + PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true (saltea su propia descarga).
+  Verificado con `docker build` real: el binario queda en /usr/bin/chromium-browser (symlink) y
+  arranca headless con --no-sandbox --disable-setuid-sandbox --disable-gpu (sin --disable-gpu
+  tira errores de Vulkan/ANGLE en el contenedor sin GPU, aunque no impiden el envio; se dejo el
+  flag para evitar el ruido). En dev local (`bun run dev`, fuera de Docker) no hace falta nada
+  de esto: Puppeteer descarga su propio Chromium normal en el `bun install` de la raiz.
+- Sin gate de Plan PRO por ahora (libre para todos los usuarios). El unico uso real de `isPro`
+  en el backend sigue siendo el limite de obligaciones gratis en obligations.ts; no hay flujo de
+  upgrade/pago, asi que no se gateo esto todavia.
+- Disparador: timer interno (`setInterval`) dentro del propio proceso Bun del backend
+  (backend/src/lib/whatsappScheduler.ts), arrancado desde index.ts tras runMigrations(). No hay
+  cron externo: el backend corre siempre encendido en Docker (Dokploy/compose), no serverless.
+  Chequea cada 5 min (CHECK_INTERVAL_MS); envia una sola vez por dia calendario, pasada la hora
+  SEND_HOUR (default 8, configurable con env var WHATSAPP_DIGEST_HOUR). El "ya se envio hoy" se
+  guarda en una variable en memoria (lastSentDate) -> se resetea en cada redeploy; peor caso, un
+  digest duplicado o saltado el dia del redeploy. Aceptable para el alcance actual, no amerita
+  tabla nueva. Pacing de 4s entre envios a distintos usuarios (cortesia para no parecer spam).
+- Contenido: un solo digest diario por usuario (no un mensaje por obligacion), agrupado en
+  Atrasadas / Vencen hoy / Proximas (mismos 3 dias que la ventana de notificaciones locales de
+  Fase 2, via dueDate ahora compartido). Si el usuario no tiene nada pendiente ese dia, no se le
+  manda nada (evita ruido diario). Solo se les manda a usuarios con waPhone no vacio.
+- Modelo de datos: la columna waKey (necesaria solo para CallMeBot) se elimino de punta a punta
+  (backend/src/db/schema.ts, packages/shared/src/schemas.ts, backend/src/routes/auth.ts,
+  migracion backend/drizzle/0001_sad_ultragirl.sql) — era segura de borrar porque se agrego en
+  esta misma sesion y nunca llego a produccion. waPhone se mantiene igual.
+- dueDate() se movio de app/src/lib/obligationStatus.ts a packages/shared/src/date.ts (matematica
+  de fechas pura, sin dependencias de React Native) para que el backend pudiera reusarla sin
+  duplicar la logica de vencimiento. obligationStatus.ts ahora re-exporta desde @iaas/shared.
+- Probado extremo a extremo en local contra MySQL real: `docker build` real de la imagen
+  (Chromium de Alpine arranca bien), y backend corriendo con `bun run dev` + WHATSAPP_DIGEST_HOUR=0
+  confirmo que el cliente de whatsapp-web.js arranca, genera el QR en ASCII en los logs, y que el
+  scheduler maneja con gracia el caso "cliente todavia no listo" (no crashea, solo loguea y
+  reintenta el proximo dia). No se pudo escanear el QR con un telefono real desde este entorno,
+  asi que falta confirmar la entrega real de un mensaje — pendiente de probar con un numero real.
 
 ### Fase 4 - Chat FAQ y Plan PRO
 - Chat de preguntas frecuentes (respuestas por palabra clave, como el HTML).
