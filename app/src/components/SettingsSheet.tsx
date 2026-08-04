@@ -12,9 +12,11 @@ import { BottomSheet } from '@/components/ui/BottomSheet';
 import { CategoriesSheet } from '@/components/CategoriesSheet';
 import { Field } from '@/components/ui/Field';
 import { useAuth } from '@/lib/auth';
+import { ApiError } from '@/lib/api';
 import {
   useCreatePaymentMethod,
   usePaymentMethods,
+  useSendWhatsappTest,
   useUpdatePaymentMethod,
   useUpdateUser,
 } from '@/hooks/queries';
@@ -69,6 +71,7 @@ export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose:
   const { data } = usePaymentMethods();
   const updateUser = useUpdateUser();
   const createPm = useCreatePaymentMethod();
+  const sendTest = useSendWhatsappTest();
 
   const [name, setName] = useState('');
   const [waPhone, setWaPhone] = useState('');
@@ -97,6 +100,16 @@ export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose:
     if (waPhone.trim() !== (user?.waPhone ?? '')) patch.waPhone = waPhone.trim();
     if (Object.keys(patch).length > 0) await updateUser.mutateAsync(patch);
     onClose();
+  }
+
+  async function testWhatsapp() {
+    try {
+      await sendTest.mutateAsync(waPhone.trim());
+      Alert.alert('Enviado ✓', 'Revisá WhatsApp en ese número.');
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : 'No se pudo enviar';
+      Alert.alert('No se pudo enviar', message);
+    }
   }
 
   function confirmLogout() {
@@ -197,6 +210,16 @@ export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose:
         placeholder="+51987654321"
         keyboardType="phone-pad"
       />
+      <Pressable
+        onPress={testWhatsapp}
+        disabled={!waPhone.trim() || sendTest.isPending}
+        className="mb-2 items-center rounded-xl border border-slate-200 py-2.5 active:opacity-80 dark:border-slate-600"
+        style={{ opacity: !waPhone.trim() || sendTest.isPending ? 0.5 : 1 }}
+      >
+        <Text className="font-semibold text-slate-700 dark:text-slate-200">
+          {sendTest.isPending ? 'Enviando...' : '📨 Enviar mensaje de prueba'}
+        </Text>
+      </Pressable>
 
       <View className="mt-3 flex-row gap-3">
         <Pressable

@@ -235,3 +235,10 @@ export function useUpdateUser() {
     onSuccess: (res) => setUser(res.user),
   });
 }
+
+export function useSendWhatsappTest() {
+  return useMutation({
+    mutationFn: (phone: string) =>
+      apiFetch<{ ok: true }>('/api/me/whatsapp-test', { method: 'POST', body: { phone } }),
+  });
+}

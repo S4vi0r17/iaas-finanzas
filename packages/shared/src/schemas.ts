@@ -69,6 +69,10 @@ export const updateUserInput = z
   })
   .partial();
 
+export const whatsappTestInput = z.object({
+  phone: z.string().trim().min(5, "Número inválido").max(20),
+});
+
 // ─── Medios de pago ───────────────────────────────────────────────────
 export const paymentMethod = z.object({
   id: z.string(),
