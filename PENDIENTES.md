@@ -125,8 +125,34 @@ de tipo, guard de vigencia). NO hay suite de tests versionada ni CI (ver Gaps).
   (Chromium de Alpine arranca bien), y backend corriendo con `bun run dev` + WHATSAPP_DIGEST_HOUR=0
   confirmo que el cliente de whatsapp-web.js arranca, genera el QR en ASCII en los logs, y que el
   scheduler maneja con gracia el caso "cliente todavia no listo" (no crashea, solo loguea y
-  reintenta el proximo dia). No se pudo escanear el QR con un telefono real desde este entorno,
-  asi que falta confirmar la entrega real de un mensaje — pendiente de probar con un numero real.
+  reintenta el proximo dia). Confirmado en produccion con un numero real: mensaje de prueba y
+  digest automatico llegaron OK.
+- Boton "Enviar mensaje de prueba" en Ajustes (POST /api/me/whatsapp-test, backend/src/routes/
+  user.ts): manda al numero que este escrito en el campo (no hace falta guardarlo antes),
+  reusa el mismo cliente de WhatsApp ya corriendo en el proceso (no levanta uno nuevo, evita
+  conflicto de lock con el cliente principal), cooldown de 60s por usuario para evitar spam.
+  Utils: app/src/hooks/queries.ts (useSendWhatsappTest), backend/src/lib/whatsappTest.ts
+  (`bun run wa:test <telefono>`, script de linea de comandos equivalente pero standalone —
+  NO correrlo mientras el proceso principal esta vivo, compiten por el mismo lock de Chromium).
+- Cadencia de "atrasado" ajustada: antes avisaba TODOS los dias (push local y WhatsApp), ahora
+  cada 3 dias (ATRASADO_CADA_DIAS) mientras siga sin pagar. En push local se cambio el trigger
+  de DAILY a TIME_INTERVAL (seconds: 3*86400, repeats:true). En WhatsApp se agrego un cooldown
+  en memoria por obligacion (lastAtrasadoNotifiedAt en whatsappScheduler.ts) que omite la
+  obligacion del digest de ese dia si ya se aviso hace menos de 3 dias (aunque siga atrasada).
+  Los mensajes de "atrasada" y "proxima" ahora incluyen la fecha concreta de vencimiento
+  (antes solo decian la categoria, sin fecha).
+- BUG encontrado y resuelto en Dokploy (persistencia de sesion, iteracion 2): con un "Volume
+  Mount" (nombre wa-session, path /app/backend/.wwebjs_auth) la sesion se perdio igual despues
+  de un "Deploy" normal (sin tocar la config del mount) — causa exacta sin confirmar, sospecha
+  de que Dokploy recrea el volumen con nombre internamente en un deploy completo aunque la UI
+  muestre el mismo nombre. Se probo pasar a Bind Mount a un path del host (/opt/iaas-wa-session)
+  pero **tumbo el contenedor entero** ("No such container"): el "Open Terminal" de Dokploy abre
+  una shell DENTRO del contenedor, no del servidor host, asi que la carpeta creada con mkdir
+  nunca existio de verdad en el host, y Docker se niega a arrancar un contenedor cuyo Bind Mount
+  apunta a un path inexistente en el host. Se recupero borrando el mount y redeployando. Sigue
+  PENDIENTE encontrar una terminal real al servidor (buscar seccion "Servers"/infra en Dokploy
+  fuera de esta Application) antes de reintentar un Bind Mount. Mientras tanto, sin volumen
+  persistente: cada redeploy pide re-escanear el QR (molesto pero no rompe nada).
 
 ### Fase 4 - Chat FAQ y Plan PRO
 - Chat de preguntas frecuentes (respuestas por palabra clave, como el HTML).

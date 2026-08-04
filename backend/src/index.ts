@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { ZodError } from "zod";
 import { runMigrations } from "./db/client";
+import { adminRoutes } from "./routes/admin";
 import { authRoutes } from "./routes/auth";
 import { categoryRoutes } from "./routes/categories";
 import { expenseRoutes } from "./routes/expenses";
@@ -28,6 +29,7 @@ app.get("/health", (c) => c.json({ ok: true, service: "iaas-finanzas" }));
 
 // Rutas públicas
 app.route("/api/auth", authRoutes);
+app.route("/admin", adminRoutes); // protegida por su propia clave (ADMIN_QR_KEY), no JWT
 
 // Rutas protegidas (requieren JWT)
 const api = new Hono<AuthEnv>();

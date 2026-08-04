@@ -7,6 +7,12 @@ const SESSION_PATH = path.resolve(process.env.WHATSAPP_SESSION_PATH ?? "./.wwebj
 
 let client: Client | null = null;
 let ready = false;
+let latestQr: string | null = null;
+
+/** Estado actual para la página de diagnóstico (GET /admin/whatsapp-qr). */
+export function getWhatsappStatus(): { ready: boolean; qr: string | null } {
+  return { ready, qr: latestQr };
+}
 
 /**
  * Si el proceso anterior se mató de golpe (redeploy, OOM) sin apagar
@@ -74,6 +80,7 @@ export function startWhatsappClient(): void {
   });
 
   client.on("qr", (qr) => {
+    latestQr = qr;
     console.log("[whatsapp] Escaneá este QR con el WhatsApp del negocio:");
     qrcode.generate(qr, { small: true });
   });
@@ -88,6 +95,7 @@ export function startWhatsappClient(): void {
   });
   client.on("ready", () => {
     ready = true;
+    latestQr = null;
     console.log("[whatsapp] Cliente de WhatsApp listo.");
   });
   client.on("auth_failure", (msg) => console.error("[whatsapp] Fallo de autenticación:", msg));
