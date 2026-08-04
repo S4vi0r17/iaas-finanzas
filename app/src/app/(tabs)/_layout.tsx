@@ -4,9 +4,18 @@ import { Text } from 'react-native';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
 import { MonthProvider } from '@/hooks/useMonth';
+import { useObligationReminders } from '@/hooks/useObligationReminders';
 
 function TabIcon({ emoji, color }: { emoji: string; color: string }) {
   return <Text style={{ fontSize: 20, color }}>{emoji}</Text>;
+}
+
+// Componente sin UI: solo dispara el hook de recordatorios. Vive dentro del
+// árbol que ya pasó el gate de auth, para no disparar el fetch de
+// obligaciones antes de tener token.
+function ObligationReminders() {
+  useObligationReminders();
+  return null;
 }
 
 export default function TabsLayout() {
@@ -21,6 +30,7 @@ export default function TabsLayout() {
 
   return (
     <MonthProvider>
+      <ObligationReminders />
       <Tabs
       screenOptions={{
         headerShown: false,

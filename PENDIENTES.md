@@ -27,15 +27,45 @@ de tipo, guard de vigencia). NO hay suite de tests versionada ni CI (ver Gaps).
 
 ## Pendientes por fase
 
-### Fase 2 - Notificaciones nativas
-- Integrar expo-notifications.
-- Alertas locales de obligaciones que vencen (retrasado / vence hoy / proximo).
-- Permisos y programacion de recordatorios.
+### Fase 2 - Notificaciones nativas - HECHO (base)
+- Integrado expo-notifications (~55.0.25). Notificaciones LOCALES unicamente
+  (Notifications.scheduleNotificationAsync), no push remoto. No requiere cuenta de Expo ni EAS
+  project id, solo permiso en el dispositivo y (Android) un canal ("obligaciones"). Si en el
+  futuro se necesita push remoto (avisar con la app cerrada, disparado desde el servidor) ahi
+  si hara falta EAS project + Expo push token.
+- app/src/lib/notifications.ts: setNotificationHandler, ensureNotificationSetup (permiso +
+  canal Android) y scheduleObligationReminders (recalcula y reprograma TODO desde cero: cancela
+  lo programado y vuelve a crear, asi no hay que llevar estado de que ya se aviso). Por
+  obligacion impaga del mes real (no el mes que este navegando el usuario en la UI):
+  - Proximo (3 dias antes, 9am, trigger DATE) si esa fecha no paso.
+  - Vence hoy (dia de vencimiento, 9am, trigger DATE) si esa fecha no paso.
+  - Retrasado (si ya vencio y sigue impaga): trigger DAILY a las 9am, se repite solo hasta que
+    se pague (al pagar deja de estar en la lista de impagas y no se recrea).
+- app/src/hooks/useObligationReminders.ts: hook que pide permiso una vez al montar y reprograma
+  cada vez que cambian los datos de obligaciones del mes real (useObligations + monthKeyOf).
+- Conectado en app/src/app/(tabs)/_layout.tsx via un componente <ObligationReminders /> sin UI,
+  montado DENTRO del gate de auth (despues del `if (!user) return <Redirect ...>`) para no
+  disparar el fetch de obligaciones antes de tener token.
+- Pendiente opcional: toggle en Ajustes para activar/desactivar recordatorios (hoy se pide
+  permiso automatico al entrar a la app logueado, sin UI para desactivarlo desde la app).
 
 ### Fase 3 - WhatsApp
-- Envio manual con Linking (wa.me) del resumen del mes.
-- Envio automatico via CallMeBot (requiere plan PRO).
-- Config de numero y API key en Ajustes.
+- DECISION: recordatorios 100% automaticos por WhatsApp (obligaciones por vencer, pagos, etc.),
+  SIN envio manual (nada de Linking/wa.me). El usuario no debe tener que tocar nada.
+- Libreria elegida: CallMeBot (API HTTP simple, gratis para uso personal/bajo volumen). El
+  usuario activa su numero mandando el mensaje de opt-in al bot de CallMeBot una sola vez y
+  obtiene un apikey; el backend dispara los mensajes con un GET a
+  api.callmebot.com/whatsapp.php?phone=...&text=...&apikey=...
+  - Gratis, no requiere tarjeta ni pago. OJO: es un servicio de un tercero no oficial, sin SLA,
+    con limites de tasa no muy documentados; puede cambiar condiciones o caerse sin aviso. Vale
+    para validar el MVP; si el proyecto escala conviene migrar a la WhatsApp Cloud API oficial
+    de Meta (gratis hasta ~1000 conversaciones/mes, pero exige verificar cuenta de negocio y
+    aprobar plantillas de mensaje).
+- Descartadas: whatsapp-web.js, wppconnect, venom-bot. Motivo: automatizan WhatsApp Web via
+  Puppeteer/Chromium enlazando un numero real por QR -> viola ToS de WhatsApp (riesgo de ban),
+  necesitan un proceso persistente 24/7 con navegador y sesion que puede expirar, y estan
+  pensadas para Node (compatibilidad no garantizada con el runtime Bun del backend).
+- Config de numero y API key de CallMeBot en Ajustes.
 
 ### Fase 4 - Chat FAQ y Plan PRO
 - Chat de preguntas frecuentes (respuestas por palabra clave, como el HTML).
