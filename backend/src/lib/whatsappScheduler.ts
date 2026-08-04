@@ -7,14 +7,18 @@ import { sendWhatsApp, sleep } from "./whatsapp";
 const CHECK_INTERVAL_MS = 5 * 60 * 1000; // tick cada 5 min
 const SEND_HOUR = Number(process.env.WHATSAPP_DIGEST_HOUR ?? 8); // 08:00 hora del servidor
 const PROXIMO_DIAS = 3; // igual que app/src/lib/notifications.ts
+const ATRASADO_CADA_DIAS = 3; // no avisar atrasadas todos los dias, cada 3
 const SEND_PACING_MS = 4000; // cortesía entre envíos (evitar patrones de spam en la cuenta)
 
-type Item = { nombre: string; saldo: number; moneda: string };
+type Item = { nombre: string; saldo: number; moneda: string; due: Date };
 type Buckets = { hoy: Item[]; proximo: Item[]; atrasado: Item[] };
 
 // En memoria: se resetea en cada redeploy. Peor caso, un digest duplicado o
 // saltado el día del redeploy — aceptable, no amerita una tabla nueva.
 let lastSentDate: string | null = null;
+// obligationId -> ultima fecha (YYYY-MM-DD) en que se incluyo en el digest
+// como atrasada. Evita mandarla todos los dias; se revisa cada ATRASADO_CADA_DIAS.
+const lastAtrasadoNotifiedAt = new Map<string, string>();
 
 function localDateKey(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -72,6 +76,7 @@ async function runDailyDigest(now: Date): Promise<void> {
   for (const r of paidRows) if (r.obligationId) paidByObligation[r.obligationId] = r.total ?? 0;
 
   const today = new Date(year, month - 1, now.getDate());
+  const todayKey = localDateKey(now);
   const byUser = new Map<string, Buckets>();
 
   for (const o of rows) {
@@ -82,8 +87,19 @@ async function runDailyDigest(now: Date): Promise<void> {
     const bucket =
       diff < 0 ? "atrasado" : diff === 0 ? "hoy" : diff <= PROXIMO_DIAS ? "proximo" : null;
     if (!bucket) continue;
+
+    if (bucket === "atrasado") {
+      const lastNotified = lastAtrasadoNotifiedAt.get(o.id);
+      if (lastNotified) {
+        const [ly, lm, ld] = lastNotified.split("-").map(Number);
+        const daysSince = Math.round((today.getTime() - new Date(ly, lm - 1, ld).getTime()) / 86400000);
+        if (daysSince < ATRASADO_CADA_DIAS) continue; // todavia en cooldown, se omite hoy
+      }
+      lastAtrasadoNotifiedAt.set(o.id, todayKey);
+    }
+
     if (!byUser.has(o.userId)) byUser.set(o.userId, { hoy: [], proximo: [], atrasado: [] });
-    byUser.get(o.userId)![bucket].push({ nombre: o.nombre, saldo, moneda: o.moneda });
+    byUser.get(o.userId)![bucket].push({ nombre: o.nombre, saldo, moneda: o.moneda, due });
   }
 
   for (const u of eligibleUsers) {
@@ -100,11 +116,17 @@ function money(amount: number, currency: string): string {
   return `${currencySymbol(currency)} ${Math.round(amount)}`;
 }
 
+function shortDate(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
+}
+
 function buildDigestMessage(b: Buckets): string {
   const lines: string[] = ["📋 Recordatorio de pagos - IAAS Finanzas"];
   if (b.atrasado.length) {
     lines.push("", "🔴 Atrasadas:");
-    for (const o of b.atrasado) lines.push(`- ${o.nombre}: ${money(o.saldo, o.moneda)}`);
+    for (const o of b.atrasado)
+      lines.push(`- ${o.nombre}: ${money(o.saldo, o.moneda)} (vencía ${shortDate(o.due)})`);
   }
   if (b.hoy.length) {
     lines.push("", "🟠 Vencen hoy:");
@@ -112,7 +134,8 @@ function buildDigestMessage(b: Buckets): string {
   }
   if (b.proximo.length) {
     lines.push("", `🟡 Próximas (${PROXIMO_DIAS} días):`);
-    for (const o of b.proximo) lines.push(`- ${o.nombre}: ${money(o.saldo, o.moneda)}`);
+    for (const o of b.proximo)
+      lines.push(`- ${o.nombre}: ${money(o.saldo, o.moneda)} (vence ${shortDate(o.due)})`);
   }
   return lines.join("\n");
 }

@@ -8,6 +8,7 @@ import { dueDate } from '@/lib/obligationStatus';
 const CHANNEL_ID = 'obligaciones';
 const REMINDER_HOUR = 9;
 const DAYS_BEFORE = 3;
+const ATRASADO_CADA_DIAS = 3; // no molestar todos los días, cada 3
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -34,6 +35,11 @@ export async function ensureNotificationSetup(): Promise<boolean> {
 
 function atHour(y: number, m: number, d: number, hour: number): Date {
   return new Date(y, m, d, hour, 0, 0, 0);
+}
+
+function shortDate(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
 }
 
 /**
@@ -73,7 +79,10 @@ export async function scheduleObligationReminders(
     if (proximoAt > now) {
       await Notifications.scheduleNotificationAsync({
         identifier: `obl-${o.id}-proximo`,
-        content: { title: `${o.nombre} vence en ${DAYS_BEFORE} días`, body },
+        content: {
+          title: `${o.nombre} vence en ${DAYS_BEFORE} días`,
+          body: `${body} (vence ${shortDate(due)})`,
+        },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
           date: proximoAt,
@@ -93,15 +102,19 @@ export async function scheduleObligationReminders(
         },
       });
     } else if (due < today) {
-      // Atrasada: recordatorio diario hasta que se pague (se cancela y
-      // reprograma solo, así que desaparece en cuanto deje de estar impaga).
+      // Atrasada: recordatorio cada ATRASADO_CADA_DIAS días (no todos los
+      // días, para no ser invasivo) hasta que se pague — se cancela y
+      // reprograma solo, así que desaparece en cuanto deje de estar impaga.
       await Notifications.scheduleNotificationAsync({
         identifier: `obl-${o.id}-retrasado`,
-        content: { title: `${o.nombre} está atrasada`, body },
+        content: {
+          title: `${o.nombre} está atrasada`,
+          body: `${body} (vencía ${shortDate(due)})`,
+        },
         trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.DAILY,
-          hour: REMINDER_HOUR,
-          minute: 0,
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+          seconds: ATRASADO_CADA_DIAS * 86400,
+          repeats: true,
           channelId: CHANNEL_ID,
         },
       });
