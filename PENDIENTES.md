@@ -82,6 +82,23 @@ de tipo, guard de vigencia). NO hay suite de tests versionada ni CI (ver Gaps).
   tira errores de Vulkan/ANGLE en el contenedor sin GPU, aunque no impiden el envio; se dejo el
   flag para evitar el ruido). En dev local (`bun run dev`, fuera de Docker) no hace falta nada
   de esto: Puppeteer descarga su propio Chromium normal en el `bun install` de la raiz.
+- BUG encontrado y arreglado en produccion (Dokploy): si el contenedor se mata de golpe
+  (redeploy, OOM) sin que Chromium se cierre limpio, el perfil de LocalAuth queda con un lock
+  (SingletonLock/SingletonSocket/SingletonCookie, symlinks) que bloquea el siguiente arranque
+  con "Failed to launch the browser process: ... profile appears to be in use by another
+  Chromium process (PID) on another computer", aunque ese proceso ya no exista. Se soluciono en
+  backend/src/lib/whatsapp.ts con dos cosas: (1) clearStaleChromeLock() borra esos lock files
+  antes de iniciar el cliente en cada boot (rmSync con force, no falla si no existen), y (2) un
+  handler de SIGTERM/SIGINT que llama client.destroy() para que Chromium cierre prolijo cuando
+  Docker para el contenedor (redeploy normal), evitando que el lock quede huerfano en primer
+  lugar. Reproducido y verificado en local: se mato el proceso con -9 completo (bun + todo el
+  arbol de Chromium) para simular el kill duro de un redeploy, y el siguiente arranque booteo
+  limpio en vez de crashear. Confirmado tambien en Dokploy por el usuario: redeploy sin crash y
+  la sesion siguio autenticada (el volumen persistente ya esta funcionando bien).
+- backend/src/lib/whatsappTest.ts (`bun run wa:test <telefono>` desde backend/): script manual
+  para mandar un mensaje de prueba sin depender de que haya obligaciones pendientes ni esperar
+  al horario del digest diario. Espera hasta ~60s a que el cliente autentique y confirma si el
+  envio funciono.
 - Sin gate de Plan PRO por ahora (libre para todos los usuarios). El unico uso real de `isPro`
   en el backend sigue siendo el limite de obligaciones gratis en obligations.ts; no hay flujo de
   upgrade/pago, asi que no se gateo esto todavia.
